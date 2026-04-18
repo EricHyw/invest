@@ -1,0 +1,466 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>投資收益紀錄系統</title>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@300;400;600;700&family=Noto+Sans+TC:wght@300;400;500;700&display=swap" rel="stylesheet">
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { min-height: 100vh; background: #0a0f1e; font-family: 'IBM Plex Mono','Courier New',monospace; color: #e2e8f0; }
+  ::-webkit-scrollbar { width: 6px; }
+  ::-webkit-scrollbar-track { background: #0a0f1e; }
+  ::-webkit-scrollbar-thumb { background: #1e3a5f; border-radius: 3px; }
+
+  #configBanner {
+    padding: 10px 32px; font-size: 0.75rem;
+    display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
+    background: linear-gradient(135deg,rgba(234,179,8,0.15),rgba(234,179,8,0.05));
+    border-bottom: 1px solid rgba(234,179,8,0.3); color: #fbbf24;
+    transition: all 0.4s;
+  }
+  #configBanner.connected { background:linear-gradient(135deg,rgba(16,185,129,0.12),rgba(16,185,129,0.04)); border-bottom-color:rgba(16,185,129,0.3); color:#34d399; }
+  #configBanner .dot { width:8px;height:8px;border-radius:50%;background:#fbbf24;flex-shrink:0;transition:background 0.4s; }
+  #configBanner.connected .dot { background:#34d399; }
+
+  header { border-bottom:1px solid rgba(100,160,255,0.1); background:rgba(10,15,30,0.97); position:sticky; top:0; z-index:100; padding:0 32px; }
+  .header-inner { max-width:980px;margin:0 auto;display:flex;align-items:center;justify-content:space-between;height:64px; }
+  .logo { display:flex;align-items:center;gap:12px; }
+  .logo-icon { width:34px;height:34px;border-radius:8px;background:linear-gradient(135deg,#1d4ed8,#7c3aed);display:flex;align-items:center;justify-content:center;font-size:1.1rem; }
+  .logo-title { font-weight:700;font-size:1rem;letter-spacing:0.05em;color:#f1f5f9; }
+  .logo-sub { font-size:0.6rem;color:#475569;letter-spacing:0.1em; }
+  .header-right { display:flex;align-items:center;gap:16px; }
+  .record-count { font-size:0.75rem;color:#475569; }
+  .record-count span { color:#60a5fa;font-weight:700; }
+  .sync-status { font-size:0.7rem;padding:4px 10px;border-radius:20px;background:rgba(100,160,255,0.08);color:#64748b;border:1px solid rgba(100,160,255,0.15);transition:all 0.3s; }
+  .sync-status.syncing { color:#fbbf24;border-color:rgba(251,191,36,0.3);background:rgba(251,191,36,0.08); }
+  .sync-status.synced  { color:#34d399;border-color:rgba(52,211,153,0.3);background:rgba(52,211,153,0.08); }
+  .sync-status.error   { color:#f87171;border-color:rgba(248,113,113,0.3);background:rgba(248,113,113,0.08); }
+
+  main { max-width:980px;margin:0 auto;padding:32px 24px; }
+  .tabs { border-bottom:1px solid rgba(100,160,255,0.1);margin-bottom:32px;display:flex; }
+  .tab-btn { padding:10px 24px;border:none;background:transparent;cursor:pointer;font-family:'IBM Plex Mono',monospace;font-size:0.83rem;font-weight:600;letter-spacing:0.08em;transition:all 0.2s;border-bottom:2px solid transparent;color:#64748b; }
+  .tab-btn.active { color:#60a5fa;border-bottom-color:#60a5fa; }
+  .tab-btn:hover { color:#93c5fd; }
+  .tab-panel { display:none;animation:fadeIn 0.3s ease; }
+  .tab-panel.active { display:block; }
+  @keyframes fadeIn { from{opacity:0;transform:translateY(8px)} to{opacity:1;transform:translateY(0)} }
+
+  .section-label { font-size:0.7rem;color:#475569;letter-spacing:0.12em;margin-bottom:4px; }
+  .section-title { font-size:1.25rem;font-weight:700;color:#f1f5f9;margin-bottom:24px; }
+
+  .form-grid { display:grid;grid-template-columns:1fr 1fr;gap:16px; }
+  .form-grid .full { grid-column:1/-1; }
+  .field label { display:block;font-size:0.7rem;color:#64748b;letter-spacing:0.1em;margin-bottom:6px; }
+  .field label span { color:#334155; }
+  .field input,.field select { width:100%;background:rgba(255,255,255,0.04);border:1px solid rgba(100,160,255,0.15);border-radius:6px;padding:10px 14px;color:#e2e8f0;font-size:0.875rem;font-family:'IBM Plex Mono',monospace;transition:border-color 0.2s,box-shadow 0.2s;outline:none; }
+  .field input:focus,.field select:focus { border-color:rgba(100,160,255,0.5);box-shadow:0 0 0 3px rgba(100,160,255,0.08); }
+  .field input.error { border-color:rgba(248,113,113,0.5); }
+  .field select option { background:#111827; }
+  .field .err-msg { color:#f87171;font-size:0.7rem;margin-top:4px; }
+
+  .btn-row { margin-top:28px;display:flex;align-items:center;gap:16px;flex-wrap:wrap; }
+  .btn-primary { padding:12px 36px;background:linear-gradient(135deg,#1d4ed8,#2563eb);border:none;border-radius:8px;color:white;font-family:'IBM Plex Mono',monospace;font-size:0.9rem;font-weight:700;letter-spacing:0.08em;cursor:pointer;transition:all 0.2s;box-shadow:0 4px 20px rgba(37,99,235,0.3); }
+  .btn-primary:hover { transform:translateY(-1px); }
+  .btn-primary.success { background:linear-gradient(135deg,#059669,#10b981); }
+  .btn-primary:disabled { opacity:0.5;cursor:not-allowed;transform:none; }
+  .btn-secondary { background:transparent;border:1px solid rgba(100,160,255,0.2);border-radius:8px;color:#64748b;padding:10px 20px;cursor:pointer;font-family:inherit;font-size:0.82rem;transition:all 0.2s; }
+  .btn-secondary:hover { color:#94a3b8;border-color:rgba(100,160,255,0.35); }
+  .btn-green { background:linear-gradient(135deg,rgba(5,150,105,0.2),rgba(16,185,129,0.1));border:1px solid rgba(52,211,153,0.3);color:#34d399;padding:10px 20px;border-radius:8px;cursor:pointer;font-family:inherit;font-size:0.82rem;transition:all 0.2s; }
+  .btn-green:hover { background:linear-gradient(135deg,rgba(5,150,105,0.35),rgba(16,185,129,0.2)); }
+  .btn-green:disabled { opacity:0.4;cursor:not-allowed; }
+
+  /* Settings */
+  .settings-box { background:rgba(255,255,255,0.02);border:1px solid rgba(100,160,255,0.12);border-radius:12px;padding:24px;margin-bottom:20px; }
+  .settings-box h3 { font-size:0.82rem;color:#94a3b8;letter-spacing:0.1em;margin-bottom:16px; }
+  .url-input-wrap { display:flex;gap:10px;align-items:flex-start; }
+  .url-input-wrap input { flex:1; }
+  .step-list { list-style:none;padding:0;margin-top:16px; }
+  .step-list li { padding:6px 0 6px 14px;border-left:2px solid rgba(100,160,255,0.15);margin-bottom:10px;color:#475569;font-size:0.72rem;line-height:1.8; }
+  .step-list li strong { color:#64748b; }
+  .step-list li code { color:#60a5fa;background:rgba(96,165,250,0.08);padding:1px 6px;border-radius:3px;font-size:0.7rem; }
+  .step-list li img { display:none; }
+  .hint { font-size:0.68rem;color:#334155;margin-top:14px;line-height:1.8; }
+  .hint a { color:#60a5fa;text-decoration:none; }
+  .connected-url { font-size:0.7rem;color:#34d399;margin-top:8px;word-break:break-all; }
+
+  /* Cards */
+  .card { background:rgba(255,255,255,0.03);border:1px solid rgba(100,160,255,0.1);border-radius:12px;padding:20px 24px;margin-bottom:14px;transition:border-color 0.2s,box-shadow 0.2s; }
+  .card:hover { border-color:rgba(100,160,255,0.25);box-shadow:0 4px 20px rgba(0,0,0,0.3); }
+  .card-top { display:flex;justify-content:space-between;align-items:flex-start;flex-wrap:wrap;gap:12px; }
+  .card-left .name { font-weight:700;font-size:1rem;color:#f1f5f9;font-family:'Noto Sans TC',sans-serif;margin-top:4px; }
+  .card-left .date { font-size:0.7rem;color:#475569;margin-top:4px; }
+  .card-right { display:flex;gap:20px;flex-wrap:wrap; }
+  .stat .stat-label { font-size:0.65rem;color:#475569;margin-bottom:2px; }
+  .stat .stat-value { font-size:0.9rem;font-weight:600;text-align:right; }
+
+  .badge { display:inline-block;padding:2px 10px;border-radius:20px;font-size:0.75rem;font-weight:600; }
+  .badge.stock { background:rgba(56,189,248,0.15);color:#38bdf8;border:1px solid rgba(56,189,248,0.3); }
+  .badge.fund  { background:rgba(167,139,250,0.15);color:#a78bfa;border:1px solid rgba(167,139,250,0.3); }
+  .pos { color:#34d399; } .neg { color:#f87171; }
+
+  .table-wrap { overflow-x:auto;border-radius:12px;border:1px solid rgba(100,160,255,0.1); }
+  table { width:100%;border-collapse:collapse;font-size:0.78rem; }
+  thead tr { background:rgba(255,255,255,0.04);border-bottom:1px solid rgba(100,160,255,0.1); }
+  th { padding:12px 16px;text-align:left;color:#475569;font-weight:600;white-space:nowrap; }
+  tbody tr { border-bottom:1px solid rgba(100,160,255,0.06);transition:background 0.15s; }
+  tbody tr:hover { background:rgba(255,255,255,0.03); }
+  td { padding:12px 16px;white-space:nowrap; }
+  td.name-cell { font-weight:600;color:#f1f5f9;font-family:'Noto Sans TC',sans-serif; }
+  td.date-cell { color:#64748b; }
+
+  .empty { text-align:center;padding:64px 0;color:#334155; }
+  .empty .empty-icon { font-size:2rem;margin-bottom:12px; }
+  .empty .empty-text { font-size:0.85rem; }
+
+  @media(max-width:600px){
+    .form-grid{grid-template-columns:1fr;} .form-grid .full{grid-column:1;}
+    header,#configBanner{padding:0 16px;} main{padding:24px 16px;}
+    .tab-btn{padding:10px 12px;font-size:0.72rem;}
+    .url-input-wrap{flex-direction:column;}
+    .card-right{gap:12px;}
+  }
+</style>
+</head>
+<body>
+
+<div id="configBanner">
+  <div class="dot"></div>
+  <span id="bannerText">⚙️ 尚未設定 — 請至「⚙ 設定」貼上 Apps Script 網址</span>
+</div>
+
+<header>
+  <div class="header-inner">
+    <div class="logo">
+      <div class="logo-icon">📈</div>
+      <div>
+        <div class="logo-title">INVEST TRACKER</div>
+        <div class="logo-sub">投資收益紀錄系統</div>
+      </div>
+    </div>
+    <div class="header-right">
+      <div class="sync-status" id="syncStatus">未連線</div>
+      <div class="record-count">共 <span id="recordCount">0</span> 筆</div>
+    </div>
+  </div>
+</header>
+
+<main>
+  <div class="tabs">
+    <button class="tab-btn active" onclick="switchTab('input',this)">＋ 新增紀錄</button>
+    <button class="tab-btn"       onclick="switchTab('summary',this)">◎ 最新持倉</button>
+    <button class="tab-btn"       onclick="switchTab('history',this)">≡ 歷史紀錄</button>
+    <button class="tab-btn"       onclick="switchTab('settings',this)">⚙ 設定</button>
+  </div>
+
+  <!-- ══ 新增紀錄 ══ -->
+  <div id="tab-input" class="tab-panel active">
+    <div class="section-label">STEP 01</div>
+    <div class="section-title">輸入投資報酬明細</div>
+    <div class="form-grid">
+      <div class="field"><label>紀錄時間</label><input type="date" id="recordTime"></div>
+      <div class="field"><label>投資類型</label>
+        <select id="investType"><option value="股票">股票</option><option value="基金">基金</option></select>
+      </div>
+      <div class="field full">
+        <label>投資產品名稱</label>
+        <input type="text" id="productName" placeholder="例：台積電 2330、元大台灣50...">
+        <div class="err-msg" id="err-productName"></div>
+      </div>
+      <div class="field">
+        <label>投資金額 (NTD)</label>
+        <input type="number" id="amount" placeholder="0" oninput="autoCalc()">
+        <div class="err-msg" id="err-amount"></div>
+      </div>
+      <div class="field">
+        <label>市值 (NTD)</label>
+        <input type="number" id="marketValue" placeholder="0" oninput="autoCalc()">
+        <div class="err-msg" id="err-marketValue"></div>
+      </div>
+      <div class="field"><label>投報金額 <span>(自動計算)</span></label><input type="number" id="returnAmount" placeholder="0"></div>
+      <div class="field"><label>投報率 % <span>(自動計算)</span></label><input type="number" id="returnRate" placeholder="0.00"></div>
+      <div class="field full"><label>含息投報率 %</label><input type="number" id="totalReturnRate" placeholder="含股息／配息後總報酬率"></div>
+    </div>
+    <div class="btn-row">
+      <button class="btn-primary" id="submitBtn" onclick="submitRecord()">儲存紀錄</button>
+      <button class="btn-secondary" onclick="clearForm()">清除</button>
+    </div>
+  </div>
+
+  <!-- ══ 最新持倉 ══ -->
+  <div id="tab-summary" class="tab-panel">
+    <div class="section-label">LATEST SNAPSHOT</div>
+    <div class="section-title">各產品最新紀錄</div>
+    <div id="summaryContent"><div class="empty"><div class="empty-icon">📊</div><div class="empty-text">尚無資料</div></div></div>
+  </div>
+
+  <!-- ══ 歷史紀錄 ══ -->
+  <div id="tab-history" class="tab-panel">
+    <div class="section-label">FULL LOG</div>
+    <div class="section-title">歷史紀錄</div>
+    <div style="margin-bottom:16px;display:flex;gap:10px;flex-wrap:wrap;">
+      <button class="btn-green" id="refreshBtn" onclick="loadRecords()">↻ 從試算表載入</button>
+      <button class="btn-secondary" onclick="exportCSV()">↓ 匯出 CSV</button>
+    </div>
+    <div id="historyContent"><div class="empty"><div class="empty-icon">📋</div><div class="empty-text">尚無歷史紀錄</div></div></div>
+  </div>
+
+  <!-- ══ 設定 ══ -->
+  <div id="tab-settings" class="tab-panel">
+    <div class="section-label">CONFIGURATION</div>
+    <div class="section-title">連線設定</div>
+
+    <div class="settings-box">
+      <h3>🔗 Apps Script 網址</h3>
+      <div class="url-input-wrap">
+        <div class="field" style="flex:1;margin:0">
+          <input type="text" id="cfg-scriptUrl" placeholder="https://script.google.com/macros/s/xxxxx/exec">
+        </div>
+        <button class="btn-primary" style="padding:10px 20px;margin-top:0" onclick="saveAndTest()">儲存並測試</button>
+      </div>
+      <div id="urlStatus" style="margin-top:8px;font-size:0.72rem;color:#475569"></div>
+    </div>
+
+    <div class="settings-box">
+      <h3>📋 設定步驟（只需做一次）</h3>
+      <ul class="step-list">
+        <li>
+          <strong>Step 1 —</strong> 開啟你的 <a href="https://sheets.new" target="_blank">Google 試算表</a>（新建或現有皆可）
+        </li>
+        <li>
+          <strong>Step 2 —</strong> 點選上方選單：<code>擴充功能</code> → <code>Apps Script</code>
+        </li>
+        <li>
+          <strong>Step 3 —</strong> 把編輯器裡原本的內容全部刪除，貼上 <code>Code.gs</code> 的程式碼（與此 HTML 一起下載）
+        </li>
+        <li>
+          <strong>Step 4 —</strong> 點右上角「<strong>部署</strong>」→「<strong>新增部署作業</strong>」<br>
+          類型選「<strong>網頁應用程式</strong>」<br>
+          執行身分：<code>我</code>　／　誰可以存取：<code>任何人</code><br>
+          點「<strong>部署</strong>」→ 複製產生的網址
+        </li>
+        <li>
+          <strong>Step 5 —</strong> 把網址貼到上方欄位，點「儲存並測試」✓
+        </li>
+      </ul>
+      <div class="hint">
+        💡 部署後若修改了 Code.gs，需重新部署（選「管理部署作業」→ 編輯 → 版本選「新版本」）才會生效。<br>
+        💡 試算表會自動建立「投資紀錄」工作表與標題列，不需手動設定。
+      </div>
+    </div>
+  </div>
+</main>
+
+<script>
+const HEADERS = ['紀錄時間','投資類型','投資產品名稱','投資金額','市值','投報金額','投報率(%)','含息投報率(%)'];
+let records = [];
+let SCRIPT_URL = localStorage.getItem('investScriptUrl') || 'https://script.google.com/macros/s/AKfycbykFv236afzjxv8Cvg-rCHvHEhRh5Lsb7t2b1bSkWZdOmFa0MoFRj4DbKSed4Q2IJTw/exec';
+
+window.onload = () => {
+  const n = new Date(); n.setMinutes(n.getMinutes()-n.getTimezoneOffset());
+  document.getElementById('recordTime').value = n.toISOString().slice(0,10);
+  document.getElementById('cfg-scriptUrl').value = SCRIPT_URL;
+  if (SCRIPT_URL) { setBanner(true); setSyncStatus('synced','已連線'); }
+};
+
+// ── 設定 ──
+async function saveAndTest() {
+  const url = document.getElementById('cfg-scriptUrl').value.trim();
+  if (!url || !url.startsWith('https://script.google.com')) {
+    document.getElementById('urlStatus').innerHTML = '<span style="color:#f87171">⚠️ 請填入正確的 Apps Script 網址</span>';
+    return;
+  }
+  document.getElementById('urlStatus').innerHTML = '<span style="color:#fbbf24">⏳ 測試連線中…</span>';
+  try {
+    const res = await fetch(url + '?action=load');
+    const data = await res.json();
+    if (data.error) throw new Error(data.error);
+    SCRIPT_URL = url;
+    localStorage.setItem('investScriptUrl', SCRIPT_URL);
+    document.getElementById('urlStatus').innerHTML = '<span style="color:#34d399">✓ 連線成功！已儲存。</span>';
+    setBanner(true); setSyncStatus('synced','已連線');
+    // 載入資料
+    if (data.rows) { applyRows(data.rows); }
+  } catch(e) {
+    document.getElementById('urlStatus').innerHTML = `<span style="color:#f87171">✗ 連線失敗：${e.message}。請確認網址與部署設定。</span>`;
+  }
+}
+
+// ── API 呼叫 ──
+async function apiGet() {
+  const res = await fetch(SCRIPT_URL + '?action=load');
+  const data = await res.json();
+  if (data.error) throw new Error(data.error);
+  return data;
+}
+
+async function apiPost(payload) {
+  const res = await fetch(SCRIPT_URL, {
+    method: 'POST',
+    body: JSON.stringify(payload),
+  });
+  const data = await res.json();
+  if (data.error) throw new Error(data.error);
+  return data;
+}
+
+async function loadRecords() {
+  if (!SCRIPT_URL) { alert('請先至「設定」填入 Apps Script 網址'); return; }
+  const btn = document.getElementById('refreshBtn');
+  btn.disabled = true; btn.textContent = '⏳ 載入中…';
+  setSyncStatus('syncing','載入中…');
+  try {
+    const data = await apiGet();
+    applyRows(data.rows || []);
+    setSyncStatus('synced','已同步');
+  } catch(e) {
+    console.error(e); setSyncStatus('error','載入失敗');
+    alert('載入失敗：' + e.message);
+  }
+  btn.disabled = false; btn.textContent = '↻ 從試算表載入';
+}
+
+function applyRows(rows) {
+  records = [...rows].reverse().map((r,i) => ({...r, id:i}));
+  document.getElementById('recordCount').textContent = records.length;
+  renderHistory(); renderSummary();
+}
+
+// ── 表單 ──
+function autoCalc() {
+  const a = parseFloat(document.getElementById('amount').value)||0;
+  const m = parseFloat(document.getElementById('marketValue').value)||0;
+  if (a > 0) {
+    document.getElementById('returnAmount').value = (m-a).toFixed(2);
+    document.getElementById('returnRate').value   = (((m-a)/a)*100).toFixed(2);
+  }
+}
+
+function clearForm() {
+  ['productName','amount','marketValue','returnAmount','returnRate','totalReturnRate'].forEach(id => {
+    document.getElementById(id).value = '';
+    const e = document.getElementById('err-'+id); if(e) e.textContent = '';
+  });
+  document.getElementById('investType').value = '股票';
+  const n = new Date(); n.setMinutes(n.getMinutes()-n.getTimezoneOffset());
+  document.getElementById('recordTime').value = n.toISOString().slice(0,10);
+}
+
+function validate() {
+  let ok = true;
+  [{id:'productName',msg:'請輸入投資產品名稱',check:v=>v.trim()!==''},
+   {id:'amount',     msg:'請輸入有效金額',     check:v=>v!==''&&!isNaN(v)},
+   {id:'marketValue',msg:'請輸入有效市值',     check:v=>v!==''&&!isNaN(v)}
+  ].forEach(f => {
+    const v = document.getElementById(f.id).value;
+    const e = document.getElementById('err-'+f.id);
+    if (!f.check(v)) { e.textContent=f.msg; document.getElementById(f.id).classList.add('error'); ok=false; }
+    else             { e.textContent='';    document.getElementById(f.id).classList.remove('error'); }
+  });
+  return ok;
+}
+
+async function submitRecord() {
+  if (!validate()) return;
+  if (!SCRIPT_URL) { alert('請先至「設定」填入 Apps Script 網址'); return; }
+  const r = {
+    recordTime:      document.getElementById('recordTime').value,
+    type:            document.getElementById('investType').value,
+    productName:     document.getElementById('productName').value.trim(),
+    amount:          document.getElementById('amount').value,
+    marketValue:     document.getElementById('marketValue').value,
+    returnAmount:    document.getElementById('returnAmount').value,
+    returnRate:      document.getElementById('returnRate').value,
+    totalReturnRate: document.getElementById('totalReturnRate').value,
+  };
+  const btn = document.getElementById('submitBtn');
+  btn.disabled = true; btn.textContent = '同步中…';
+  setSyncStatus('syncing','同步中…');
+  try {
+    await apiPost({ action:'append', row:r });
+    records.unshift({...r, id:Date.now()});
+    document.getElementById('recordCount').textContent = records.length;
+    setSyncStatus('synced','已同步');
+    btn.textContent = '✓ 已儲存'; btn.classList.add('success');
+    setTimeout(()=>{ btn.textContent='儲存紀錄'; btn.classList.remove('success'); btn.disabled=false; },1400);
+    clearForm();
+  } catch(e) {
+    console.error(e); setSyncStatus('error','同步失敗');
+    alert('儲存失敗：' + e.message);
+    btn.textContent = '儲存紀錄'; btn.disabled = false;
+  }
+}
+
+// ── UI ──
+function setSyncStatus(cls, text) {
+  const el = document.getElementById('syncStatus');
+  el.className = 'sync-status' + (cls?' '+cls:''); el.textContent = text;
+}
+function setBanner(connected) {
+  const b = document.getElementById('configBanner');
+  const t = document.getElementById('bannerText');
+  if (connected) { b.className='connected'; t.textContent='✓ 已連線 Google Sheets — 資料同步至試算表'; }
+  else           { b.className=''; t.textContent='⚙️ 尚未設定 — 請至「⚙ 設定」貼上 Apps Script 網址'; }
+}
+
+// ── 渲染 ──
+function fc(v){const n=parseFloat(v);return isNaN(n)?'—':n.toLocaleString('zh-TW',{minimumFractionDigits:0,maximumFractionDigits:2});}
+function fr(v){const n=parseFloat(v);return(isNaN(n)||v==='')?'—':(n>=0?'+':'')+n.toFixed(2)+'%';}
+function fd(dt){if(!dt)return'—';const d=new Date(dt);return d.toLocaleDateString('zh-TW')+' '+d.toLocaleTimeString('zh-TW',{hour:'2-digit',minute:'2-digit'});}
+function bdg(t){return`<span class="badge ${t==='股票'?'stock':'fund'}">${t}</span>`;}
+function cc(v){return parseFloat(v)>=0?'pos':'neg';}
+
+function renderSummary(){
+  const map={};
+  for(const r of records) if(!map[r.productName]||new Date(r.recordTime)>new Date(map[r.productName].recordTime)) map[r.productName]=r;
+  const latest=Object.values(map).sort((a,b)=>new Date(b.recordTime)-new Date(a.recordTime));
+  const el=document.getElementById('summaryContent');
+  if(!latest.length){el.innerHTML='<div class="empty"><div class="empty-icon">📊</div><div class="empty-text">尚無資料，請先載入或新增紀錄</div></div>';return;}
+  el.innerHTML=latest.map(r=>`
+    <div class="card"><div class="card-top">
+      <div class="card-left">${bdg(r.type)}<div class="name">${r.productName}</div><div class="date">最後更新：${fd(r.recordTime)}</div></div>
+      <div class="card-right">
+        <div class="stat"><div class="stat-label">投資金額</div><div class="stat-value">NT$ ${fc(r.amount)}</div></div>
+        <div class="stat"><div class="stat-label">市值</div><div class="stat-value">NT$ ${fc(r.marketValue)}</div></div>
+        <div class="stat"><div class="stat-label">投報金額</div><div class="stat-value ${cc(r.returnAmount)}">${parseFloat(r.returnAmount)>=0?'+':''}NT$ ${fc(r.returnAmount)}</div></div>
+        <div class="stat"><div class="stat-label">投報率</div><div class="stat-value ${cc(r.returnRate)}">${fr(r.returnRate)}</div></div>
+        <div class="stat"><div class="stat-label">含息投報率</div><div class="stat-value ${cc(r.totalReturnRate)}">${r.totalReturnRate?fr(r.totalReturnRate):'—'}</div></div>
+      </div>
+    </div></div>`).join('');
+}
+
+function renderHistory(){
+  const el=document.getElementById('historyContent');
+  if(!records.length){el.innerHTML='<div class="empty"><div class="empty-icon">📋</div><div class="empty-text">尚無歷史紀錄</div></div>';return;}
+  el.innerHTML=`<div class="table-wrap"><table>
+    <thead><tr><th>紀錄時間</th><th>類型</th><th>產品名稱</th><th>投資金額</th><th>市值</th><th>投報金額</th><th>投報率</th><th>含息投報率</th></tr></thead>
+    <tbody>${records.map(r=>`<tr>
+      <td class="date-cell">${fd(r.recordTime)}</td><td>${bdg(r.type)}</td>
+      <td class="name-cell">${r.productName}</td>
+      <td>NT$ ${fc(r.amount)}</td><td>NT$ ${fc(r.marketValue)}</td>
+      <td class="${cc(r.returnAmount)}">${parseFloat(r.returnAmount)>=0?'+':''}NT$ ${fc(r.returnAmount)}</td>
+      <td class="${cc(r.returnRate)}">${fr(r.returnRate)}</td>
+      <td class="${cc(r.totalReturnRate)}">${r.totalReturnRate?fr(r.totalReturnRate):'—'}</td>
+    </tr>`).join('')}</tbody></table></div>`;
+}
+
+function exportCSV(){
+  if(!records.length){alert('尚無資料可匯出');return;}
+  const rows=[HEADERS,...records.map(r=>[r.recordTime,r.type,r.productName,r.amount,r.marketValue,r.returnAmount,r.returnRate,r.totalReturnRate])];
+  const csv=rows.map(r=>r.map(c=>`"${String(c).replace(/"/g,'""')}"`).join(',')).join('\n');
+  const a=document.createElement('a');
+  a.href=URL.createObjectURL(new Blob(['\uFEFF'+csv],{type:'text/csv;charset=utf-8'}));
+  a.download=`投資紀錄_${new Date().toLocaleDateString('zh-TW').replace(/\//g,'-')}.csv`; a.click();
+}
+
+function switchTab(name,btn){
+  document.querySelectorAll('.tab-panel').forEach(p=>p.classList.remove('active'));
+  document.querySelectorAll('.tab-btn').forEach(b=>b.classList.remove('active'));
+  document.getElementById('tab-'+name).classList.add('active'); btn.classList.add('active');
+  if(name==='summary') renderSummary();
+  if(name==='history') renderHistory();
+  if(name==='settings') document.getElementById('cfg-scriptUrl').value = SCRIPT_URL;
+}
+</script>
+</body>
+</html>

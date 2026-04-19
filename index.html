@@ -84,7 +84,7 @@
   td { padding:10px 14px;white-space:nowrap;vertical-align:middle; }
   td.name-cell { font-weight:600;color:#f1f5f9;font-family:'Noto Sans TC',sans-serif; }
   td.date-cell { color:#64748b; }
-  .pos { color:#f87171; } .neg { color:#34d399;}
+  .pos { color:#f87171;} .neg { color:#34d399; }
 
   /* Inline edit inputs */
   .edit-input { background:rgba(255,255,255,0.06);border:1px solid rgba(96,165,250,0.4);border-radius:4px;padding:5px 8px;color:#e2e8f0;font-size:0.78rem;font-family:'IBM Plex Mono',monospace;outline:none;width:100%;min-width:80px; }
@@ -191,7 +191,7 @@
     <div class="section-label">STEP 01</div>
     <div class="section-title">輸入投資報酬明細</div>
     <div class="form-grid">
-      <div class="field"><label>紀錄時間</label><input type="datetime-local" id="recordTime"></div>
+      <div class="field"><label>紀錄日期</label><input type="date" id="recordTime"></div>
       <div class="field"><label>投資類型</label>
         <select id="investType"><option value="股票">股票</option><option value="基金">基金</option></select>
       </div>
@@ -290,14 +290,14 @@
 </div>
 
 <script>
-const HEADERS = ['紀錄時間','投資類型','投資產品名稱','投資金額','市值','投報金額','投報率(%)','含息投報率(%)'];
+const HEADERS = ['紀錄日期','投資類型','投資產品名稱','投資金額','市值','投報金額','投報率(%)','含息投報率(%)'];
 let records = [];       // 完整資料
 let editingId = null;   // 目前正在編輯的 record id
-let SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbxyPSuc1cKdir8X-rKsEODN-Te9AMtHhOL26acIJRkikjyK-IPq5qyeKFHwRaSn07tw/exec';
+let SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbzkO5Cx4-o0omnwybf8_mlknfSWx44U2TeIyLf_7WRuwFzcod7occTiaI-iCiEPcYa0/exec';
 
 window.onload = () => {
   const n = new Date(); n.setMinutes(n.getMinutes()-n.getTimezoneOffset());
-  document.getElementById('recordTime').value = n.toISOString().slice(0,16);
+  document.getElementById('recordTime').value = n.toISOString().slice(0,10);
   document.getElementById('cfg-scriptUrl').value = SCRIPT_URL;
   if (SCRIPT_URL) { setBanner(true); setSyncStatus('synced','已連線'); }
 };
@@ -392,7 +392,7 @@ function clearForm() {
   });
   document.getElementById('investType').value='股票';
   const n=new Date();n.setMinutes(n.getMinutes()-n.getTimezoneOffset());
-  document.getElementById('recordTime').value=n.toISOString().slice(0,16);
+  document.getElementById('recordTime').value=n.toISOString().slice(0,10);
 }
 function validate() {
   let ok=true;
@@ -522,7 +522,7 @@ async function executeDelete() {
 // ── 渲染 ──
 function fc(v){const n=parseFloat(v);return isNaN(n)?'—':n.toLocaleString('zh-TW',{minimumFractionDigits:0,maximumFractionDigits:2});}
 function fr(v){const n=parseFloat(v);return(isNaN(n)||v==='')?'—':(n>=0?'+':'')+n.toFixed(2)+'%';}
-function fd(dt){if(!dt)return'—';const d=new Date(dt);return d.toLocaleDateString('zh-TW')+' '+d.toLocaleTimeString('zh-TW',{hour:'2-digit',minute:'2-digit'});}
+function fd(dt){if(!dt)return'—';const d=new Date(dt+'T00:00:00');return d.toLocaleDateString('zh-TW');}
 function bdg(t){return`<span class="badge ${t==='股票'?'stock':'fund'}">${t}</span>`;}
 function cc(v){return parseFloat(v)>=0?'pos':'neg';}
 
@@ -541,7 +541,7 @@ function renderHistory() {
 
     if (isEditing) {
       return `<tr class="editing">
-        <td><input class="edit-input wide" id="e_recordTime_${id}" type="datetime-local" value="${r.recordTime||''}"></td>
+        <td><input class="edit-input wide" id="e_recordTime_${id}" type="date" value="${(r.recordTime||'').slice(0,10)}"></td>
         <td><select class="edit-select" id="e_type_${id}">
           <option${r.type==='股票'?' selected':''}>股票</option>
           <option${r.type==='基金'?' selected':''}>基金</option>
@@ -581,7 +581,7 @@ function renderHistory() {
 
   el.innerHTML = `<div class="table-wrap"><table>
     <thead><tr>
-      <th>紀錄時間</th><th>類型</th><th>產品名稱</th>
+      <th>紀錄日期</th><th>類型</th><th>產品名稱</th>
       <th>投資金額</th><th>市值</th><th>投報金額</th>
       <th>投報率</th><th>含息投報率</th><th>操作</th>
     </tr></thead>

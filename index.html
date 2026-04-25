@@ -104,7 +104,7 @@
   td{padding:10px 14px;white-space:nowrap;vertical-align:middle}
   td.name-cell{font-weight:600;color:#f1f5f9;font-family:'Noto Sans TC',sans-serif}
   td.date-cell{color:#64748b}
-  .pos{color:#34d399} .neg{color:#f87171}
+  .pos{color:#f87171} .neg{color:#34d399}
 
   .edit-input{background:rgba(255,255,255,0.06);border:1px solid rgba(96,165,250,0.4);border-radius:4px;padding:5px 8px;color:#e2e8f0;font-size:0.78rem;font-family:'IBM Plex Mono',monospace;outline:none;width:100%;min-width:80px}
   .edit-input:focus{border-color:#60a5fa;box-shadow:0 0 0 2px rgba(96,165,250,0.15)}
@@ -243,6 +243,18 @@
   <div id="tab-summary" class="tab-panel">
     <div class="section-label">LATEST SNAPSHOT</div>
     <div class="section-title">各產品最新紀錄</div>
+    <!-- 篩選 + 市值加總 -->
+    <div class="history-toolbar" style="margin-bottom:16px">
+      <div class="filter-wrap">
+        <span class="filter-label">篩選類型：</span>
+        <select id="filterSummaryType" onchange="renderSummary()">
+          <option value="">全部類型</option>
+          <option value="股票">股票</option>
+          <option value="基金">基金</option>
+        </select>
+      </div>
+      <div id="summaryTotals" style="display:flex;gap:12px;flex-wrap:wrap"></div>
+    </div>
     <div id="summaryContent"><div class="empty"><div class="empty-icon">📊</div><div class="empty-text">尚無資料</div></div></div>
   </div>
 
@@ -717,9 +729,40 @@ function cc(v){return parseFloat(v)>=0?'pos':'neg';}
 function renderSummary(){
   const map={};
   for(const r of records)if(!map[r.productName]||new Date(r.recordTime)>new Date(map[r.productName].recordTime))map[r.productName]=r;
-  const latest=Object.values(map).sort((a,b)=>new Date(b.recordTime)-new Date(a.recordTime));
+  let latest=Object.values(map).sort((a,b)=>new Date(b.recordTime)-new Date(a.recordTime));
+
+  // 篩選
+  const f=document.getElementById('filterSummaryType')?document.getElementById('filterSummaryType').value:'';
+  if(f) latest=latest.filter(r=>r.type===f);
+
+  // 市值加總（依類型）
+  const totalsEl=document.getElementById('summaryTotals');
+  if(totalsEl){
+    const allLatest=Object.values(map); // 不受篩選影響的全量
+    const typeGroups={};
+    allLatest.forEach(r=>{ typeGroups[r.type]=(typeGroups[r.type]||0)+parseFloat(r.marketValue||0); });
+    const types=f?[f]:Object.keys(typeGroups).sort();
+    const grandTotal=Object.values(typeGroups).reduce((s,v)=>s+v,0);
+    let totalsHtml=types.map(t=>{
+      const cls=t==='股票'?'stock':'fund';
+      return `<div style="display:flex;align-items:center;gap:8px;background:rgba(255,255,255,0.03);border:1px solid rgba(100,160,255,0.12);border-radius:8px;padding:8px 14px">
+        <span class="badge ${cls}" style="font-size:0.7rem">${t}</span>
+        <span style="font-size:0.72rem;color:#475569">市值</span>
+        <span style="font-weight:700;font-size:0.9rem;color:#f1f5f9">NT$ ${fc(typeGroups[t]||0)}</span>
+      </div>`;
+    }).join('');
+    if(!f&&types.length>1){
+      totalsHtml+=`<div style="display:flex;align-items:center;gap:8px;background:rgba(96,165,250,0.06);border:1px solid rgba(96,165,250,0.25);border-radius:8px;padding:8px 14px">
+        <span style="font-size:0.7rem;color:#60a5fa;font-weight:700">合計</span>
+        <span style="font-size:0.72rem;color:#475569">市值</span>
+        <span style="font-weight:700;font-size:0.9rem;color:#60a5fa">NT$ ${fc(grandTotal)}</span>
+      </div>`;
+    }
+    totalsEl.innerHTML=totalsHtml;
+  }
+
   const el=document.getElementById('summaryContent');
-  if(!latest.length){el.innerHTML='<div class="empty"><div class="empty-icon">📊</div><div class="empty-text">尚無資料</div></div>';return;}
+  if(!latest.length){el.innerHTML='<div class="empty"><div class="empty-icon">📊</div><div class="empty-text">'+(Object.keys(map).length?'無符合篩選條件的持倉':'尚無資料')+'</div></div>';return;}
   el.innerHTML=latest.map(r=>`<div class="card"><div class="card-top">
     <div class="card-left">${bdg(r.type)}<div class="name">${r.productName}</div><div class="date">最後更新：${fd(r.recordTime)}</div></div>
     <div class="card-right">

@@ -1,4 +1,3 @@
-
 <!DOCTYPE html>
 <html lang="zh-TW">
 <head>
@@ -324,7 +323,6 @@ header {
   </div>
   <div class="header-right">
     <div class="sync-pill" id="syncPill">未連線</div>
-    <div style="font-size:0.72rem;color:var(--text3)">投資 <span id="recordCount" style="color:var(--blue);font-weight:700">0</span></div>
   </div>
 </header>
 
@@ -567,7 +565,6 @@ async function loadRecords(){
 }
 function applyRows(rows){
   records=[...rows].reverse().map((r,i)=>({...r,_id:i}));
-  document.getElementById('recordCount').textContent=records.length;
   updateFilterOpts(); renderHistory(); renderSummary();
 }
 function updateFilterOpts(){
@@ -611,7 +608,6 @@ async function submitRecord(){
   try{
     const res=await apiPost({action:'append',row:r});
     r.rowIndex=res.rowIndex;r._id=Date.now();records.unshift(r);
-    document.getElementById('recordCount').textContent=records.length;
     updateFilterOpts();renderHistory();renderSummary();
     setSyncPill('synced','已同步');btn.textContent='✓ 已儲存';btn.classList.add('success');
     setTimeout(()=>{btn.textContent='儲存紀錄';btn.classList.remove('success');btn.disabled=false;},1400);
@@ -652,7 +648,7 @@ async function executeDelete(){
   if(!r)return;closeDeleteModal();setSyncPill('syncing','刪除中…');
   try{
     await apiPost({action:type==='invest'?'delete':'deleteAsset',rowIndex:r.rowIndex});
-    if(type==='invest'){records=records.filter(x=>x._id!==id);document.getElementById('recordCount').textContent=records.length;loadRecords();}
+    if(type==='invest'){records=records.filter(x=>x._id!==id);}
     else{assetRecords=assetRecords.filter(x=>x._id!==id);loadAssets();}
     setSyncPill('synced','已同步');
   }catch(e){setSyncPill('error','失敗');alert(e.message);}

@@ -1,0 +1,943 @@
+
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<title>投資收益紀錄</title>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;700&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg: #0a0f1e;
+  --bg2: #0f172a;
+  --bg3: rgba(255,255,255,0.04);
+  --border: rgba(100,160,255,0.12);
+  --text: #e2e8f0;
+  --text2: #94a3b8;
+  --text3: #475569;
+  --blue: #60a5fa;
+  --green: #34d399;
+  --red: #f87171;
+  --yellow: #fbbf24;
+  --nav-h: 64px;
+  --safe-bottom: env(safe-area-inset-bottom, 0px);
+}
+* { box-sizing:border-box; margin:0; padding:0; -webkit-tap-highlight-color:transparent; }
+html,body { height:100%; overflow:hidden; }
+body {
+  background:var(--bg);
+  font-family:'Noto Sans TC','PingFang TC',sans-serif;
+  color:var(--text);
+  display:flex; flex-direction:column;
+}
+
+/* ── Banner ── */
+#banner {
+  padding:9px 16px; font-size:0.72rem;
+  display:flex; align-items:center; gap:8px;
+  background:linear-gradient(135deg,rgba(234,179,8,0.15),rgba(234,179,8,0.05));
+  border-bottom:1px solid rgba(234,179,8,0.3); color:var(--yellow);
+  flex-shrink:0; transition:all 0.4s;
+}
+#banner.connected { background:linear-gradient(135deg,rgba(16,185,129,0.1),rgba(16,185,129,0.04)); border-bottom-color:rgba(52,211,153,0.3); color:var(--green); }
+#banner .dot { width:7px;height:7px;border-radius:50%;background:var(--yellow);flex-shrink:0; }
+#banner.connected .dot { background:var(--green); }
+
+/* ── Header ── */
+header {
+  display:flex; align-items:center; justify-content:space-between;
+  padding:0 16px; height:52px; flex-shrink:0;
+  background:rgba(10,15,30,0.97);
+  border-bottom:1px solid var(--border);
+}
+.logo { display:flex; align-items:center; gap:10px; }
+.logo-icon { width:30px;height:30px;border-radius:7px;background:linear-gradient(135deg,#1d4ed8,#7c3aed);display:flex;align-items:center;justify-content:center;font-size:1rem; }
+.logo-title { font-weight:700; font-size:0.95rem; color:#f1f5f9; }
+.header-right { display:flex; align-items:center; gap:10px; }
+.sync-pill { font-size:0.68rem; padding:3px 9px; border-radius:20px; background:var(--bg3); color:var(--text3); border:1px solid var(--border); transition:all 0.3s; }
+.sync-pill.syncing { color:var(--yellow); border-color:rgba(251,191,36,0.3); }
+.sync-pill.synced  { color:var(--green);  border-color:rgba(52,211,153,0.3); }
+.sync-pill.error   { color:var(--red);    border-color:rgba(248,113,113,0.3); }
+
+/* ── Scroll area ── */
+#app {
+  flex:1; overflow-y:auto; overflow-x:hidden;
+  -webkit-overflow-scrolling:touch;
+  padding-bottom:calc(var(--nav-h) + var(--safe-bottom) + 16px);
+}
+
+/* ── Bottom Nav ── */
+#bottomNav {
+  position:fixed; bottom:0; left:0; right:0;
+  height:calc(var(--nav-h) + var(--safe-bottom));
+  padding-bottom:var(--safe-bottom);
+  background:rgba(10,15,30,0.97);
+  border-top:1px solid var(--border);
+  display:flex; align-items:stretch;
+  z-index:100;
+  backdrop-filter:blur(12px);
+}
+.nav-item {
+  flex:1; display:flex; flex-direction:column; align-items:center; justify-content:center;
+  gap:3px; border:none; background:transparent; cursor:pointer;
+  color:var(--text3); transition:color 0.2s; padding:8px 0;
+  font-family:inherit;
+}
+.nav-item.active { color:var(--blue); }
+.nav-item .nav-icon { font-size:1.3rem; line-height:1; }
+.nav-item .nav-label { font-size:0.6rem; font-weight:500; letter-spacing:0.03em; }
+
+/* ── Pages ── */
+.page { display:none; padding:16px; animation:fadeUp 0.25s ease; }
+.page.active { display:block; }
+@keyframes fadeUp { from{opacity:0;transform:translateY(6px)} to{opacity:1;transform:translateY(0)} }
+
+.page-title { font-size:1.1rem; font-weight:700; color:#f1f5f9; margin-bottom:16px; }
+.page-label { font-size:0.65rem; color:var(--text3); letter-spacing:0.1em; margin-bottom:3px; }
+
+/* ── Form ── */
+.form-section { background:var(--bg3); border:1px solid var(--border); border-radius:14px; padding:16px; margin-bottom:14px; }
+.form-section-title { font-size:0.68rem; color:var(--text3); letter-spacing:0.1em; margin-bottom:14px; }
+.field { margin-bottom:14px; }
+.field:last-child { margin-bottom:0; }
+.field label { display:block; font-size:0.72rem; color:var(--text2); margin-bottom:6px; font-weight:500; }
+.field label .sub { color:var(--text3); font-weight:400; }
+.field input, .field select {
+  width:100%; background:rgba(255,255,255,0.05); border:1px solid var(--border);
+  border-radius:10px; padding:13px 14px; color:var(--text);
+  font-size:1rem; font-family:inherit; outline:none;
+  transition:border-color 0.2s;
+  -webkit-appearance:none; appearance:none;
+}
+.field input:focus, .field select:focus { border-color:rgba(96,165,250,0.5); }
+.field input.error { border-color:rgba(248,113,113,0.5); }
+.field select option { background:#111827; }
+.err-msg { color:var(--red); font-size:0.72rem; margin-top:5px; }
+.field-row { display:grid; grid-template-columns:1fr 1fr; gap:12px; }
+
+/* ── Buttons ── */
+.btn-main {
+  width:100%; padding:15px; background:linear-gradient(135deg,#1d4ed8,#2563eb);
+  border:none; border-radius:12px; color:white; font-family:inherit;
+  font-size:1rem; font-weight:700; cursor:pointer; transition:all 0.2s;
+  box-shadow:0 4px 16px rgba(37,99,235,0.3); margin-top:4px;
+}
+.btn-main:active { transform:scale(0.98); }
+.btn-main.success { background:linear-gradient(135deg,#059669,#10b981); }
+.btn-main:disabled { opacity:0.5; }
+.btn-sub {
+  width:100%; padding:13px; background:transparent;
+  border:1px solid var(--border); border-radius:12px;
+  color:var(--text2); font-family:inherit; font-size:0.9rem;
+  cursor:pointer; margin-top:8px;
+}
+.btn-green-full {
+  padding:12px 20px; background:linear-gradient(135deg,rgba(5,150,105,0.2),rgba(16,185,129,0.1));
+  border:1px solid rgba(52,211,153,0.3); color:var(--green);
+  border-radius:10px; cursor:pointer; font-family:inherit; font-size:0.85rem;
+  white-space:nowrap;
+}
+.btn-outline {
+  padding:12px 16px; background:transparent; border:1px solid var(--border);
+  color:var(--text2); border-radius:10px; cursor:pointer; font-family:inherit;
+  font-size:0.85rem; white-space:nowrap;
+}
+
+/* ── Cards (持倉) ── */
+.hold-card {
+  background:var(--bg3); border:1px solid var(--border);
+  border-radius:14px; padding:16px; margin-bottom:12px;
+}
+.hold-card-head { display:flex; align-items:center; justify-content:space-between; margin-bottom:12px; }
+.hold-card-name { font-weight:700; font-size:1rem; color:#f1f5f9; }
+.hold-card-date { font-size:0.68rem; color:var(--text3); margin-top:2px; }
+.hold-stats { display:grid; grid-template-columns:1fr 1fr; gap:8px; }
+.hold-stat { background:rgba(255,255,255,0.03); border-radius:8px; padding:10px 12px; }
+.hold-stat-label { font-size:0.62rem; color:var(--text3); margin-bottom:3px; }
+.hold-stat-value { font-size:0.88rem; font-weight:700; }
+
+/* 市值加總列 */
+.totals-row { display:flex; gap:10px; flex-wrap:wrap; margin-bottom:16px; }
+.total-chip {
+  display:flex; align-items:center; gap:8px;
+  background:var(--bg3); border:1px solid var(--border);
+  border-radius:10px; padding:10px 14px; flex:1; min-width:130px;
+}
+.total-chip.grand { border-color:rgba(96,165,250,0.25); background:rgba(96,165,250,0.05); }
+.total-chip-label { font-size:0.68rem; color:var(--text3); }
+.total-chip-value { font-size:0.95rem; font-weight:700; color:#f1f5f9; }
+.total-chip.grand .total-chip-value { color:var(--blue); }
+
+/* ── Filter bar ── */
+.filter-bar { display:flex; align-items:center; gap:10px; margin-bottom:14px; flex-wrap:wrap; }
+.filter-bar select {
+  background:var(--bg3); border:1px solid var(--border);
+  border-radius:10px; padding:10px 14px; color:var(--text);
+  font-size:0.85rem; font-family:inherit; outline:none;
+  flex:1; min-width:140px; -webkit-appearance:none;
+}
+.filter-bar select option { background:#111827; }
+.count-tag { font-size:0.7rem; color:var(--text3); white-space:nowrap; }
+
+/* ── Record cards (投資紀錄) ── */
+.rec-card {
+  background:var(--bg3); border:1px solid var(--border);
+  border-radius:14px; padding:14px 16px; margin-bottom:10px;
+}
+.rec-card-head { display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:10px; }
+.rec-card-name { font-weight:700; font-size:0.95rem; color:#f1f5f9; }
+.rec-card-date { font-size:0.68rem; color:var(--text3); margin-top:2px; }
+.rec-card-actions { display:flex; gap:8px; }
+.rec-grid { display:grid; grid-template-columns:1fr 1fr; gap:6px; }
+.rec-item { background:rgba(255,255,255,0.02); border-radius:7px; padding:8px 10px; }
+.rec-item-label { font-size:0.6rem; color:var(--text3); margin-bottom:2px; }
+.rec-item-value { font-size:0.82rem; font-weight:600; }
+
+/* 行內編輯 card */
+.edit-card {
+  background:rgba(37,99,235,0.07); border:1px solid rgba(96,165,250,0.25);
+  border-radius:14px; padding:14px 16px; margin-bottom:10px;
+}
+.edit-card .field { margin-bottom:10px; }
+.edit-card .field label { font-size:0.68rem; color:var(--text2); margin-bottom:4px; }
+.edit-card .field input,
+.edit-card .field select {
+  padding:10px 12px; font-size:0.88rem; border-radius:8px;
+}
+.edit-btns { display:flex; gap:8px; margin-top:12px; }
+.edit-btn-save {
+  flex:1; padding:12px; background:linear-gradient(135deg,rgba(5,150,105,0.3),rgba(16,185,129,0.2));
+  border:1px solid rgba(52,211,153,0.4); color:var(--green);
+  border-radius:10px; cursor:pointer; font-family:inherit; font-size:0.9rem; font-weight:700;
+}
+.edit-btn-cancel {
+  padding:12px 20px; background:transparent; border:1px solid var(--border);
+  color:var(--text2); border-radius:10px; cursor:pointer; font-family:inherit; font-size:0.9rem;
+}
+
+/* ── Icon buttons ── */
+.icon-btn {
+  padding:7px 12px; border-radius:8px; border:none; cursor:pointer;
+  font-size:0.78rem; font-family:inherit; transition:all 0.15s;
+}
+.icon-btn-edit   { background:rgba(96,165,250,0.1);  color:var(--blue); }
+.icon-btn-delete { background:rgba(248,113,113,0.1); color:var(--red);  }
+
+/* ── Badge ── */
+.badge { display:inline-block; padding:3px 10px; border-radius:20px; font-size:0.72rem; font-weight:700; }
+.badge.stock { background:rgba(56,189,248,0.15); color:#38bdf8; border:1px solid rgba(56,189,248,0.3); }
+.badge.fund  { background:rgba(167,139,250,0.15); color:#a78bfa; border:1px solid rgba(167,139,250,0.3); }
+.badge.cash  { background:rgba(52,211,153,0.12);  color:#34d399; border:1px solid rgba(52,211,153,0.25); }
+.badge.cash2 { background:rgba(16,185,129,0.12);  color:#10b981; border:1px solid rgba(16,185,129,0.25); }
+.badge.cash3 { background:rgba(110,231,183,0.12); color:#6ee7b7; border:1px solid rgba(110,231,183,0.25); }
+
+/* ── KPI cards ── */
+.kpi-grid { display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-bottom:16px; }
+.kpi-card { background:var(--bg3); border:1px solid var(--border); border-radius:12px; padding:14px 16px; }
+.kpi-card.total { grid-column:1/-1; border-color:rgba(96,165,250,0.25); background:rgba(96,165,250,0.05); }
+.kpi-card.cash-card  { border-color:rgba(52,211,153,0.2); }
+.kpi-card.cash2-card { border-color:rgba(16,185,129,0.2); }
+.kpi-card.cash3-card { border-color:rgba(110,231,183,0.2); }
+.kpi-card.stock-card { border-color:rgba(56,189,248,0.2); }
+.kpi-card.fund-card  { border-color:rgba(167,139,250,0.2); }
+.kpi-label { font-size:0.65rem; color:var(--text3); letter-spacing:0.08em; margin-bottom:6px; }
+.kpi-value { font-size:1.15rem; font-weight:700; color:#f1f5f9; }
+.kpi-sub   { font-size:0.65rem; color:var(--text3); margin-top:3px; }
+.kpi-change { font-size:0.72rem; margin-top:5px; }
+.kpi-change.pos { color:var(--red); }
+.kpi-change.neg { color:var(--green); }
+.kpi-change.neu { color:var(--text3); }
+
+/* Donut */
+.donut-wrap { display:flex; align-items:center; justify-content:center; gap:24px; flex-wrap:wrap; margin:16px 0; }
+.donut-legend { display:flex; flex-direction:column; gap:9px; }
+.legend-row { display:flex; align-items:center; gap:8px; font-size:0.78rem; }
+.legend-dot { width:9px; height:9px; border-radius:50%; flex-shrink:0; }
+
+/* Compare table */
+.compare-table { width:100%; border-collapse:collapse; font-size:0.78rem; margin-top:10px; }
+.compare-table th { padding:9px 10px; text-align:left; color:var(--text3); font-weight:600; border-bottom:1px solid var(--border); }
+.compare-table td { padding:9px 10px; border-bottom:1px solid rgba(100,160,255,0.05); }
+.compare-table tr:last-child td { font-weight:700; border-top:1px solid var(--border); }
+
+/* Asset log cards */
+.asset-card { background:var(--bg3); border:1px solid var(--border); border-radius:12px; padding:14px 16px; margin-bottom:10px; display:flex; align-items:center; justify-content:space-between; }
+.asset-card-left .asset-amount { font-size:1rem; font-weight:700; color:#f1f5f9; margin-top:4px; }
+.asset-card-left .asset-date   { font-size:0.68rem; color:var(--text3); margin-top:2px; }
+.asset-card-right { display:flex; gap:8px; align-items:center; }
+
+/* Settings */
+.settings-card { background:var(--bg3); border:1px solid var(--border); border-radius:14px; padding:16px; margin-bottom:14px; }
+.settings-card h3 { font-size:0.75rem; color:var(--text2); letter-spacing:0.08em; margin-bottom:14px; }
+.step-list { list-style:none; }
+.step-list li { padding:6px 0 6px 12px; border-left:2px solid var(--border); margin-bottom:8px; color:var(--text3); font-size:0.72rem; line-height:1.7; }
+.step-list li strong { color:var(--text2); }
+.step-list li code { color:var(--blue); background:rgba(96,165,250,0.08); padding:1px 5px; border-radius:3px; }
+.step-list li a { color:var(--blue); text-decoration:none; }
+.hint-text { font-size:0.68rem; color:var(--text3); margin-top:12px; line-height:1.8; }
+
+/* Status */
+.url-status { font-size:0.75rem; margin-top:8px; min-height:20px; }
+
+/* Empty */
+.empty-state { text-align:center; padding:48px 0; color:var(--text3); }
+.empty-state .icon { font-size:2rem; margin-bottom:10px; }
+.empty-state .text { font-size:0.85rem; }
+
+/* Section divider */
+.section-head { font-size:0.65rem; color:var(--text3); letter-spacing:0.1em; margin:16px 0 10px; }
+
+/* pos/neg */
+.pos { color:var(--red); }
+.neg { color:var(--green); }
+
+/* ── Modal ── */
+.modal-overlay { position:fixed; inset:0; background:rgba(0,0,0,0.8); z-index:300; display:flex; align-items:flex-end; justify-content:center; animation:fadeIn 0.2s; }
+.modal-overlay.center { align-items:center; }
+@keyframes fadeIn { from{opacity:0} to{opacity:1} }
+.modal-sheet { background:var(--bg2); border-radius:20px 20px 0 0; padding:20px 20px calc(20px + var(--safe-bottom)); width:100%; max-width:480px; animation:slideUp 0.25s ease; }
+@keyframes slideUp { from{transform:translateY(100%)} to{transform:translateY(0)} }
+.modal-sheet h3 { font-size:1rem; font-weight:700; color:#f1f5f9; margin-bottom:8px; text-align:center; }
+.modal-sheet p  { font-size:0.82rem; color:var(--text2); margin-bottom:20px; text-align:center; line-height:1.6; }
+.modal-btns { display:flex; gap:10px; }
+.modal-btns .btn-danger { flex:1; padding:14px; background:linear-gradient(135deg,#dc2626,#ef4444); border:none; border-radius:12px; color:white; font-family:inherit; font-size:1rem; font-weight:700; cursor:pointer; }
+.modal-btns .btn-cancel-m { flex:1; padding:14px; background:var(--bg3); border:1px solid var(--border); border-radius:12px; color:var(--text2); font-family:inherit; font-size:1rem; cursor:pointer; }
+
+@media(min-width:768px){
+  #app { max-width:760px; margin:0 auto; }
+  #bottomNav { max-width:760px; left:50%; transform:translateX(-50%); }
+  .field-row { grid-template-columns:1fr 1fr; }
+  .kpi-grid { grid-template-columns:1fr 1fr 1fr; }
+}
+</style>
+</head>
+<body>
+
+<div id="banner"><div class="dot"></div><span id="bannerText">⚙️ 請至「設定」貼上 Apps Script 網址</span></div>
+
+<header>
+  <div class="logo">
+    <div class="logo-icon">📈</div>
+    <div class="logo-title">投資收益</div>
+  </div>
+  <div class="header-right">
+    <div class="sync-pill" id="syncPill">未連線</div>
+    <div style="font-size:0.72rem;color:var(--text3)">投資 <span id="recordCount" style="color:var(--blue);font-weight:700">0</span></div>
+  </div>
+</header>
+
+<div id="app">
+
+  <!-- ══ 新增投資 ══ -->
+  <div class="page active" id="page-input">
+    <div class="page-label">新增紀錄</div>
+    <div class="page-title">投資報酬明細</div>
+    <div class="form-section">
+      <div class="field-row">
+        <div class="field"><label>紀錄日期</label><input type="date" id="recordTime"></div>
+        <div class="field"><label>投資類型</label>
+          <select id="investType"><option value="股票">股票</option><option value="基金">基金</option></select>
+        </div>
+      </div>
+      <div class="field">
+        <label>投資產品名稱</label>
+        <input type="text" id="productName" placeholder="例：台積電 2330">
+        <div class="err-msg" id="err-productName"></div>
+      </div>
+      <div class="field-row">
+        <div class="field">
+          <label>投資金額</label>
+          <input type="number" id="amount" placeholder="0" inputmode="numeric" oninput="autoCalc()">
+          <div class="err-msg" id="err-amount"></div>
+        </div>
+        <div class="field">
+          <label>市值</label>
+          <input type="number" id="marketValue" placeholder="0" inputmode="numeric" oninput="autoCalc()">
+          <div class="err-msg" id="err-marketValue"></div>
+        </div>
+      </div>
+      <div class="field-row">
+        <div class="field"><label>投報金額 <span class="sub">自動</span></label><input type="number" id="returnAmount" placeholder="0" inputmode="numeric"></div>
+        <div class="field"><label>投報率 % <span class="sub">自動</span></label><input type="number" id="returnRate" placeholder="0.00" inputmode="decimal"></div>
+      </div>
+      <div class="field"><label>含息投報率 %</label><input type="number" id="totalReturnRate" placeholder="含息後總報酬率" inputmode="decimal"></div>
+    </div>
+    <button class="btn-main" id="submitBtn" onclick="submitRecord()">儲存紀錄</button>
+    <button class="btn-sub" onclick="clearForm()">清除</button>
+  </div>
+
+  <!-- ══ 最新持倉 ══ -->
+  <div class="page" id="page-summary">
+    <div class="page-label">持倉總覽</div>
+    <div class="page-title">最新持倉</div>
+    <div class="filter-bar">
+      <select id="filterSummaryType" onchange="renderSummary()">
+        <option value="">全部類型</option>
+        <option value="股票">股票</option>
+        <option value="基金">基金</option>
+      </select>
+      <span class="count-tag" id="summaryCountTag"></span>
+    </div>
+    <div class="totals-row" id="summaryTotals"></div>
+    <div id="summaryContent"><div class="empty-state"><div class="icon">📊</div><div class="text">尚無資料</div></div></div>
+  </div>
+
+  <!-- ══ 投資紀錄 ══ -->
+  <div class="page" id="page-history">
+    <div class="page-label">歷史查詢</div>
+    <div class="page-title">投資紀錄</div>
+    <div class="filter-bar">
+      <select id="filterProduct" onchange="renderHistory()"><option value="">全部產品</option></select>
+      <span class="count-tag" id="resultCount"></span>
+      <button class="btn-green-full" id="refreshBtn" onclick="loadRecords()">↻ 載入</button>
+      <button class="btn-outline" onclick="exportCSV()">↓ CSV</button>
+    </div>
+    <div id="historyContent"><div class="empty-state"><div class="icon">📋</div><div class="text">尚無歷史紀錄</div></div></div>
+  </div>
+
+  <!-- ══ 總資產 ══ -->
+  <div class="page" id="page-assets">
+    <div class="page-label">資產概覽</div>
+    <div class="page-title">總資產</div>
+    <div id="assetKpiGrid"><div class="empty-state"><div class="icon">💰</div><div class="text">尚無資產紀錄</div></div></div>
+    <div id="donutSection" style="display:none">
+      <div class="section-head">資產配置</div>
+      <div class="donut-wrap">
+        <canvas id="donutChart" width="160" height="160"></canvas>
+        <div class="donut-legend" id="donutLegend"></div>
+      </div>
+    </div>
+    <div id="compareSection" style="display:none">
+      <div class="section-head">與前次比較</div>
+      <div id="compareContent"></div>
+    </div>
+  </div>
+
+  <!-- ══ 資產紀錄 ══ -->
+  <div class="page" id="page-assetLog">
+    <div class="page-label">資產管理</div>
+    <div class="page-title">資產紀錄</div>
+    <!-- 新增表單 -->
+    <div class="form-section">
+      <div class="form-section-title">新增資產紀錄</div>
+      <div class="field-row">
+        <div class="field"><label>日期</label><input type="date" id="assetDate"></div>
+        <div class="field"><label>資產類型</label>
+          <select id="assetType">
+            <option value="富邦現金">富邦現金</option>
+            <option value="中信現金">中信現金</option>
+            <option value="王道現金">王道現金</option>
+            <option value="股票">股票</option>
+            <option value="基金">基金</option>
+          </select>
+        </div>
+      </div>
+      <div class="field">
+        <label>金額 (NTD)</label>
+        <input type="number" id="assetAmount" placeholder="0" inputmode="numeric">
+        <div class="err-msg" id="err-assetAmount"></div>
+      </div>
+      <button class="btn-main" id="assetSubmitBtn" onclick="submitAsset()">新增資產</button>
+      <button class="btn-sub" onclick="clearAssetForm()">清除</button>
+    </div>
+    <!-- 篩選 -->
+    <div class="filter-bar">
+      <select id="filterAssetType" onchange="renderAssetLog()">
+        <option value="">全部類型</option>
+        <option value="富邦現金">富邦現金</option>
+        <option value="中信現金">中信現金</option>
+        <option value="王道現金">王道現金</option>
+        <option value="股票">股票</option>
+        <option value="基金">基金</option>
+      </select>
+      <span class="count-tag" id="assetResultCount"></span>
+      <button class="btn-green-full" id="assetRefreshBtn" onclick="loadAssets()">↻ 載入</button>
+    </div>
+    <div id="assetLogContent"><div class="empty-state"><div class="icon">📋</div><div class="text">尚無資產紀錄</div></div></div>
+  </div>
+
+  <!-- ══ 設定 ══ -->
+  <div class="page" id="page-settings">
+    <div class="page-label">連線設定</div>
+    <div class="page-title">設定</div>
+    <div class="settings-card">
+      <h3>🔗 Apps Script 網址</h3>
+      <div class="field"><input type="text" id="cfg-scriptUrl" placeholder="https://script.google.com/macros/s/…/exec"></div>
+      <button class="btn-main" onclick="saveAndTest()">儲存並測試連線</button>
+      <div class="url-status" id="urlStatus"></div>
+    </div>
+    <div class="settings-card">
+      <h3>📋 設定步驟</h3>
+      <ul class="step-list">
+        <li><strong>Step 1 —</strong> 開啟 <a href="https://sheets.new" target="_blank">Google 試算表</a></li>
+        <li><strong>Step 2 —</strong> <code>擴充功能</code> → <code>Apps Script</code></li>
+        <li><strong>Step 3 —</strong> 貼上 <code>Code.gs</code> 內容</li>
+        <li><strong>Step 4 —</strong> 部署 → 網頁應用程式<br>執行身分：<code>我</code>　誰可存取：<code>任何人</code></li>
+        <li><strong>Step 5 —</strong> 複製網址貼上方，點「儲存並測試」</li>
+      </ul>
+      <div class="hint-text">💡 試算表會自動建立「投資紀錄」與「資產紀錄」工作表。</div>
+    </div>
+  </div>
+
+</div><!-- /#app -->
+
+<!-- Bottom Nav -->
+<nav id="bottomNav">
+  <button class="nav-item active" onclick="goPage('input',this)"><span class="nav-icon">＋</span><span class="nav-label">新增投資</span></button>
+  <button class="nav-item" onclick="goPage('summary',this)"><span class="nav-icon">◎</span><span class="nav-label">最新持倉</span></button>
+  <button class="nav-item" onclick="goPage('history',this)"><span class="nav-icon">≡</span><span class="nav-label">投資紀錄</span></button>
+  <button class="nav-item" onclick="goPage('assets',this)"><span class="nav-icon">💰</span><span class="nav-label">總資產</span></button>
+  <button class="nav-item" onclick="goPage('assetLog',this)"><span class="nav-icon">📋</span><span class="nav-label">資產紀錄</span></button>
+  <button class="nav-item" onclick="goPage('settings',this)"><span class="nav-icon">⚙</span><span class="nav-label">設定</span></button>
+</nav>
+
+<!-- Delete Modal -->
+<div id="deleteModal" class="modal-overlay" style="display:none">
+  <div class="modal-sheet">
+    <h3>確認刪除</h3>
+    <p id="deleteModalText"></p>
+    <div class="modal-btns">
+      <button class="btn-cancel-m" onclick="closeDeleteModal()">取消</button>
+      <button class="btn-danger" id="confirmDeleteBtn">確認刪除</button>
+    </div>
+  </div>
+</div>
+
+<script>
+// ══ 狀態 ══
+const INVEST_HEADERS=['紀錄日期','投資類型','投資產品名稱','投資金額','市值','投報金額','投報率(%)','含息投報率(%)'];
+const ASSET_COLORS={'富邦現金':'#34d399','中信現金':'#10b981','王道現金':'#6ee7b7','股票':'#38bdf8','基金':'#a78bfa'};
+let records=[], assetRecords=[];
+let editingId=null, editingAssetId=null;
+let pendingDelId=null, pendingDelType=null;
+let SCRIPT_URL='https://script.google.com/macros/s/AKfycbxz-oGUojQuVQmMJD5ksArD8Gb3l89qohJPbk4dveSq_cugV74kGSP_qoPeCg3AbNnT/exec';
+
+window.onload=()=>{
+  const n=new Date(); n.setMinutes(n.getMinutes()-n.getTimezoneOffset());
+  const today=n.toISOString().slice(0,10);
+  document.getElementById('recordTime').value=today;
+  document.getElementById('assetDate').value=today;
+  document.getElementById('cfg-scriptUrl').value=SCRIPT_URL;
+  if(SCRIPT_URL){setBanner(true);setSyncPill('synced','已連線');}
+};
+
+// ══ 導覽 ══
+function goPage(name,btn){
+  document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
+  document.querySelectorAll('.nav-item').forEach(b=>b.classList.remove('active'));
+  document.getElementById('page-'+name).classList.add('active');
+  btn.classList.add('active');
+  document.getElementById('app').scrollTop=0;
+  if(name==='summary')renderSummary();
+  if(name==='history')renderHistory();
+  if(name==='assets'){if(!assetRecords.length)loadAssets();else renderAssetDashboard();}
+  if(name==='assetLog'){if(!assetRecords.length)loadAssets();else renderAssetLog();}
+  if(name==='settings')document.getElementById('cfg-scriptUrl').value=SCRIPT_URL;
+}
+
+// ══ 設定 & API ══
+async function saveAndTest(){
+  const url=document.getElementById('cfg-scriptUrl').value.trim();
+  if(!url.startsWith('https://script.google.com')){setUrlStatus('error','請填入正確的網址');return;}
+  setUrlStatus('pending','⏳ 測試中…');
+  try{
+    const res=await fetch(url+'?action=load');
+    const data=await res.json();
+    if(data.error)throw new Error(data.error);
+    SCRIPT_URL=url; localStorage.setItem('investScriptUrl',SCRIPT_URL);
+    setUrlStatus('ok','✓ 連線成功！已儲存。');
+    setBanner(true); setSyncPill('synced','已連線');
+    if(data.rows)applyRows(data.rows);
+  }catch(e){setUrlStatus('error','✗ '+e.message);}
+}
+function setUrlStatus(t,m){const c=t==='ok'?'#34d399':t==='error'?'#f87171':'#fbbf24';document.getElementById('urlStatus').innerHTML=`<span style="color:${c}">${m}</span>`;}
+async function apiGet(action){const res=await fetch(SCRIPT_URL+'?action='+action);const d=await res.json();if(d.error)throw new Error(d.error);return d;}
+async function apiPost(payload){const res=await fetch(SCRIPT_URL,{method:'POST',body:JSON.stringify(payload)});const d=await res.json();if(d.error)throw new Error(d.error);return d;}
+
+// ══ 投資 ══
+async function loadRecords(){
+  if(!SCRIPT_URL){alert('請先設定連線');return;}
+  const btn=document.getElementById('refreshBtn');
+  btn.disabled=true;btn.textContent='⏳';setSyncPill('syncing','載入中…');
+  try{const d=await apiGet('load');applyRows(d.rows||[]);setSyncPill('synced','已同步');}
+  catch(e){setSyncPill('error','失敗');alert(e.message);}
+  btn.disabled=false;btn.textContent='↻ 載入';
+}
+function applyRows(rows){
+  records=[...rows].reverse().map((r,i)=>({...r,_id:i}));
+  document.getElementById('recordCount').textContent=records.length;
+  updateFilterOpts(); renderHistory(); renderSummary();
+}
+function updateFilterOpts(){
+  const sel=document.getElementById('filterProduct'),cur=sel.value;
+  const names=[...new Set(records.map(r=>r.productName).filter(Boolean))].sort();
+  sel.innerHTML='<option value="">全部產品</option>'+names.map(n=>`<option${n===cur?' selected':''}>${n}</option>`).join('');
+}
+function getFiltered(){const f=document.getElementById('filterProduct').value;return f?records.filter(r=>r.productName===f):records;}
+
+function autoCalc(){
+  const a=parseFloat(document.getElementById('amount').value)||0;
+  const m=parseFloat(document.getElementById('marketValue').value)||0;
+  if(a>0){document.getElementById('returnAmount').value=(m-a).toFixed(2);document.getElementById('returnRate').value=(((m-a)/a)*100).toFixed(2);}
+}
+function clearForm(){
+  ['productName','amount','marketValue','returnAmount','returnRate','totalReturnRate'].forEach(id=>{
+    document.getElementById(id).value='';
+    const e=document.getElementById('err-'+id);if(e)e.textContent='';
+    document.getElementById(id).classList.remove('error');
+  });
+  document.getElementById('investType').value='股票';
+  const n=new Date();n.setMinutes(n.getMinutes()-n.getTimezoneOffset());
+  document.getElementById('recordTime').value=n.toISOString().slice(0,10);
+}
+function validateInvest(){
+  let ok=true;
+  [{id:'productName',msg:'請輸入產品名稱',check:v=>v.trim()!==''},
+   {id:'amount',msg:'請輸入金額',check:v=>v!==''&&!isNaN(v)},
+   {id:'marketValue',msg:'請輸入市值',check:v=>v!==''&&!isNaN(v)}
+  ].forEach(f=>{
+    const v=document.getElementById(f.id).value,e=document.getElementById('err-'+f.id);
+    if(!f.check(v)){e.textContent=f.msg;document.getElementById(f.id).classList.add('error');ok=false;}
+    else{e.textContent='';document.getElementById(f.id).classList.remove('error');}
+  });return ok;
+}
+async function submitRecord(){
+  if(!validateInvest())return;
+  if(!SCRIPT_URL){alert('請先設定連線');return;}
+  const r={recordTime:document.getElementById('recordTime').value,type:document.getElementById('investType').value,productName:document.getElementById('productName').value.trim(),amount:document.getElementById('amount').value,marketValue:document.getElementById('marketValue').value,returnAmount:document.getElementById('returnAmount').value,returnRate:document.getElementById('returnRate').value,totalReturnRate:document.getElementById('totalReturnRate').value};
+  const btn=document.getElementById('submitBtn');btn.disabled=true;btn.textContent='同步中…';setSyncPill('syncing','同步中…');
+  try{
+    const res=await apiPost({action:'append',row:r});
+    r.rowIndex=res.rowIndex;r._id=Date.now();records.unshift(r);
+    document.getElementById('recordCount').textContent=records.length;
+    updateFilterOpts();renderHistory();renderSummary();
+    setSyncPill('synced','已同步');btn.textContent='✓ 已儲存';btn.classList.add('success');
+    setTimeout(()=>{btn.textContent='儲存紀錄';btn.classList.remove('success');btn.disabled=false;},1400);
+    clearForm();
+  }catch(e){setSyncPill('error','失敗');alert(e.message);btn.textContent='儲存紀錄';btn.disabled=false;}
+}
+
+// 編輯
+function startEdit(id){editingId=id;renderHistory();}
+function cancelEdit(){editingId=null;renderHistory();}
+function editAutoCalc(id){
+  const a=parseFloat(document.getElementById('ei_amount_'+id).value)||0;
+  const m=parseFloat(document.getElementById('ei_marketValue_'+id).value)||0;
+  if(a>0){document.getElementById('ei_returnAmount_'+id).value=(m-a).toFixed(2);document.getElementById('ei_returnRate_'+id).value=(((m-a)/a)*100).toFixed(2);}
+}
+async function saveEdit(id){
+  const r=records.find(x=>x._id===id);if(!r)return;
+  const u={recordTime:document.getElementById('ei_recordTime_'+id).value,type:document.getElementById('ei_type_'+id).value,productName:document.getElementById('ei_productName_'+id).value.trim(),amount:document.getElementById('ei_amount_'+id).value,marketValue:document.getElementById('ei_marketValue_'+id).value,returnAmount:document.getElementById('ei_returnAmount_'+id).value,returnRate:document.getElementById('ei_returnRate_'+id).value,totalReturnRate:document.getElementById('ei_totalReturnRate_'+id).value};
+  if(!u.productName){alert('產品名稱不可空白');return;}
+  setSyncPill('syncing','儲存中…');
+  try{await apiPost({action:'update',rowIndex:r.rowIndex,row:u});Object.assign(r,u);editingId=null;updateFilterOpts();renderHistory();renderSummary();setSyncPill('synced','已同步');}
+  catch(e){setSyncPill('error','失敗');alert(e.message);}
+}
+
+// 刪除
+function confirmDelete(id,type){
+  const r=type==='invest'?records.find(x=>x._id===id):assetRecords.find(x=>x._id===id);if(!r)return;
+  pendingDelId=id;pendingDelType=type;
+  const lbl=type==='invest'?`「${r.productName}」投資紀錄`:`${r.recordDate}・${r.assetType}（NT$ ${fc(r.amount)}）`;
+  document.getElementById('deleteModalText').innerHTML=`確定刪除 <strong style="color:#f1f5f9">${lbl}</strong>？<br>此操作無法復原。`;
+  document.getElementById('confirmDeleteBtn').onclick=executeDelete;
+  document.getElementById('deleteModal').style.display='flex';
+}
+function closeDeleteModal(){document.getElementById('deleteModal').style.display='none';pendingDelId=null;pendingDelType=null;}
+async function executeDelete(){
+  const id=pendingDelId,type=pendingDelType;
+  const r=type==='invest'?records.find(x=>x._id===id):assetRecords.find(x=>x._id===id);
+  if(!r)return;closeDeleteModal();setSyncPill('syncing','刪除中…');
+  try{
+    await apiPost({action:type==='invest'?'delete':'deleteAsset',rowIndex:r.rowIndex});
+    if(type==='invest'){records=records.filter(x=>x._id!==id);document.getElementById('recordCount').textContent=records.length;loadRecords();}
+    else{assetRecords=assetRecords.filter(x=>x._id!==id);loadAssets();}
+    setSyncPill('synced','已同步');
+  }catch(e){setSyncPill('error','失敗');alert(e.message);}
+}
+document.getElementById('deleteModal').addEventListener('click',e=>{if(e.target===document.getElementById('deleteModal'))closeDeleteModal();});
+
+// ══ 資產 ══
+async function loadAssets(){
+  if(!SCRIPT_URL){alert('請先設定連線');return;}
+  const btn=document.getElementById('assetRefreshBtn');
+  btn.disabled=true;btn.textContent='⏳';setSyncPill('syncing','載入中…');
+  try{
+    const d=await apiGet('loadAssets');
+    assetRecords=[...d.rows||[]].reverse().map((r,i)=>({...r,_id:i}));
+    renderAssetLog();renderAssetDashboard();setSyncPill('synced','已同步');
+  }catch(e){setSyncPill('error','失敗');alert(e.message);}
+  btn.disabled=false;btn.textContent='↻ 載入';
+}
+function clearAssetForm(){
+  document.getElementById('assetAmount').value='';
+  document.getElementById('err-assetAmount').textContent='';
+  document.getElementById('assetAmount').classList.remove('error');
+  document.getElementById('assetType').value='富邦現金';
+  const n=new Date();n.setMinutes(n.getMinutes()-n.getTimezoneOffset());
+  document.getElementById('assetDate').value=n.toISOString().slice(0,10);
+}
+async function submitAsset(){
+  const amt=document.getElementById('assetAmount').value;
+  const e=document.getElementById('err-assetAmount');
+  if(!amt||isNaN(amt)){e.textContent='請輸入有效金額';document.getElementById('assetAmount').classList.add('error');return;}
+  e.textContent='';document.getElementById('assetAmount').classList.remove('error');
+  if(!SCRIPT_URL){alert('請先設定連線');return;}
+  const r={recordDate:document.getElementById('assetDate').value,assetType:document.getElementById('assetType').value,amount:amt};
+  const btn=document.getElementById('assetSubmitBtn');btn.disabled=true;btn.textContent='同步中…';setSyncPill('syncing','同步中…');
+  try{
+    const res=await apiPost({action:'appendAsset',row:r});
+    r.rowIndex=res.rowIndex;r._id=Date.now();assetRecords.unshift(r);
+    renderAssetLog();renderAssetDashboard();
+    setSyncPill('synced','已同步');btn.textContent='✓ 已新增';btn.classList.add('success');
+    setTimeout(()=>{btn.textContent='新增資產';btn.classList.remove('success');btn.disabled=false;},1400);
+    clearAssetForm();
+  }catch(e){setSyncPill('error','失敗');alert(e.message);btn.textContent='新增資產';btn.disabled=false;}
+}
+function startAssetEdit(id){editingAssetId=id;renderAssetLog();}
+function cancelAssetEdit(){editingAssetId=null;renderAssetLog();}
+async function saveAssetEdit(id){
+  const r=assetRecords.find(x=>x._id===id);if(!r)return;
+  const u={recordDate:document.getElementById('ea_date_'+id).value,assetType:document.getElementById('ea_type_'+id).value,amount:document.getElementById('ea_amount_'+id).value};
+  if(!u.amount||isNaN(u.amount)){alert('請輸入有效金額');return;}
+  setSyncPill('syncing','儲存中…');
+  try{await apiPost({action:'updateAsset',rowIndex:r.rowIndex,row:u});Object.assign(r,u);editingAssetId=null;renderAssetLog();renderAssetDashboard();setSyncPill('synced','已同步');}
+  catch(e){setSyncPill('error','失敗');alert(e.message);}
+}
+
+// ══ 渲染 ══
+function fc(v){const n=parseFloat(v);return isNaN(n)?'—':n.toLocaleString('zh-TW',{maximumFractionDigits:0});}
+function fr(v){const n=parseFloat(v);return(isNaN(n)||v==='')?'—':(n>=0?'+':'')+n.toFixed(2)+'%';}
+function fd(dt){if(!dt)return'—';return new Date(dt+'T00:00:00').toLocaleDateString('zh-TW');}
+function bdg(t){return`<span class="badge ${t==='股票'?'stock':'fund'}">${t}</span>`;}
+function abadge(t){const m={'富邦現金':'cash','中信現金':'cash2','王道現金':'cash3','股票':'stock','基金':'fund'};return`<span class="badge ${m[t]||'fund'}">${t}</span>`;}
+function cc(v){return parseFloat(v)>=0?'pos':'neg';}
+
+function renderSummary(){
+  const map={};
+  for(const r of records)if(!map[r.productName]||new Date(r.recordTime)>new Date(map[r.productName].recordTime))map[r.productName]=r;
+  const f=document.getElementById('filterSummaryType').value;
+  let latest=Object.values(map).sort((a,b)=>new Date(b.recordTime)-new Date(a.recordTime));
+
+  // 市值加總
+  const allLatest=Object.values(map);
+  const typeGroups={};
+  allLatest.forEach(r=>{typeGroups[r.type]=(typeGroups[r.type]||0)+parseFloat(r.marketValue||0);});
+  const grandTotal=Object.values(typeGroups).reduce((s,v)=>s+v,0);
+  const types=f?[f]:Object.keys(typeGroups).sort();
+  let totHtml=types.map(t=>`
+    <div class="total-chip">
+      ${bdg(t)}
+      <div><div class="total-chip-label">市值</div><div class="total-chip-value">NT$ ${fc(typeGroups[t]||0)}</div></div>
+    </div>`).join('');
+  if(!f&&types.length>1){
+    totHtml+=`<div class="total-chip grand">
+      <span style="font-size:0.72rem;color:var(--blue);font-weight:700">合計</span>
+      <div><div class="total-chip-label">市值</div><div class="total-chip-value">NT$ ${fc(grandTotal)}</div></div>
+    </div>`;
+  }
+  document.getElementById('summaryTotals').innerHTML=totHtml;
+
+  if(f) latest=latest.filter(r=>r.type===f);
+  document.getElementById('summaryCountTag').textContent=latest.length?`${latest.length} 筆`:'';
+  const el=document.getElementById('summaryContent');
+  if(!latest.length){el.innerHTML='<div class="empty-state"><div class="icon">📊</div><div class="text">'+(Object.keys(map).length?'無符合條件的持倉':'尚無資料')+'</div></div>';return;}
+  el.innerHTML=latest.map(r=>`
+    <div class="hold-card">
+      <div class="hold-card-head">
+        <div><div style="margin-bottom:4px">${bdg(r.type)}</div><div class="hold-card-name">${r.productName}</div><div class="hold-card-date">${fd(r.recordTime)}</div></div>
+      </div>
+      <div class="hold-stats">
+        <div class="hold-stat"><div class="hold-stat-label">投資金額</div><div class="hold-stat-value">NT$ ${fc(r.amount)}</div></div>
+        <div class="hold-stat"><div class="hold-stat-label">市值</div><div class="hold-stat-value">NT$ ${fc(r.marketValue)}</div></div>
+        <div class="hold-stat"><div class="hold-stat-label">投報金額</div><div class="hold-stat-value ${cc(r.returnAmount)}">${parseFloat(r.returnAmount)>=0?'+':''}NT$ ${fc(r.returnAmount)}</div></div>
+        <div class="hold-stat"><div class="hold-stat-label">投報率</div><div class="hold-stat-value ${cc(r.returnRate)}">${fr(r.returnRate)}</div></div>
+        <div class="hold-stat"><div class="hold-stat-label">含息投報率</div><div class="hold-stat-value ${cc(r.totalReturnRate)}">${r.totalReturnRate?fr(r.totalReturnRate):'—'}</div></div>
+      </div>
+    </div>`).join('');
+}
+
+function renderHistory(){
+  const filtered=getFiltered();
+  document.getElementById('resultCount').textContent=filtered.length?`${filtered.length} 筆`:'';
+  const el=document.getElementById('historyContent');
+  if(!filtered.length){el.innerHTML='<div class="empty-state"><div class="icon">📋</div><div class="text">'+(records.length?'無符合條件紀錄':'尚無歷史紀錄')+'</div></div>';return;}
+  el.innerHTML=filtered.map(r=>{
+    const id=r._id;
+    if(editingId===id)return`
+      <div class="edit-card">
+        <div class="field-row">
+          <div class="field"><label>日期</label><input class="field input" type="date" id="ei_recordTime_${id}" value="${(r.recordTime||'').slice(0,10)}" style="padding:10px 12px;font-size:0.88rem;border-radius:8px;width:100%;background:rgba(255,255,255,0.05);border:1px solid var(--border);color:var(--text);font-family:inherit;outline:none"></div>
+          <div class="field"><label>類型</label><select id="ei_type_${id}" class="field select" style="padding:10px 12px;font-size:0.88rem;border-radius:8px;width:100%;background:rgba(255,255,255,0.05);border:1px solid var(--border);color:var(--text);font-family:inherit;outline:none"><option${r.type==='股票'?' selected':''}>股票</option><option${r.type==='基金'?' selected':''}>基金</option></select></div>
+        </div>
+        <div class="field"><label>產品名稱</label><input type="text" id="ei_productName_${id}" value="${r.productName||''}" style="padding:10px 12px;font-size:0.88rem;border-radius:8px;width:100%;background:rgba(255,255,255,0.05);border:1px solid var(--border);color:var(--text);font-family:inherit;outline:none"></div>
+        <div class="field-row">
+          <div class="field"><label>投資金額</label><input type="number" id="ei_amount_${id}" value="${r.amount||''}" inputmode="numeric" oninput="editAutoCalc(${id})" style="padding:10px 12px;font-size:0.88rem;border-radius:8px;width:100%;background:rgba(255,255,255,0.05);border:1px solid var(--border);color:var(--text);font-family:inherit;outline:none"></div>
+          <div class="field"><label>市值</label><input type="number" id="ei_marketValue_${id}" value="${r.marketValue||''}" inputmode="numeric" oninput="editAutoCalc(${id})" style="padding:10px 12px;font-size:0.88rem;border-radius:8px;width:100%;background:rgba(255,255,255,0.05);border:1px solid var(--border);color:var(--text);font-family:inherit;outline:none"></div>
+        </div>
+        <div class="field-row">
+          <div class="field"><label>投報金額</label><input type="number" id="ei_returnAmount_${id}" value="${r.returnAmount||''}" inputmode="numeric" style="padding:10px 12px;font-size:0.88rem;border-radius:8px;width:100%;background:rgba(255,255,255,0.05);border:1px solid var(--border);color:var(--text);font-family:inherit;outline:none"></div>
+          <div class="field"><label>投報率 %</label><input type="number" id="ei_returnRate_${id}" value="${r.returnRate||''}" inputmode="decimal" style="padding:10px 12px;font-size:0.88rem;border-radius:8px;width:100%;background:rgba(255,255,255,0.05);border:1px solid var(--border);color:var(--text);font-family:inherit;outline:none"></div>
+        </div>
+        <div class="field"><label>含息投報率 %</label><input type="number" id="ei_totalReturnRate_${id}" value="${r.totalReturnRate||''}" inputmode="decimal" style="padding:10px 12px;font-size:0.88rem;border-radius:8px;width:100%;background:rgba(255,255,255,0.05);border:1px solid var(--border);color:var(--text);font-family:inherit;outline:none"></div>
+        <div class="edit-btns">
+          <button class="edit-btn-save" onclick="saveEdit(${id})">✓ 儲存</button>
+          <button class="edit-btn-cancel" onclick="cancelEdit()">取消</button>
+        </div>
+      </div>`;
+    return`<div class="rec-card">
+      <div class="rec-card-head">
+        <div><div style="margin-bottom:3px">${bdg(r.type)}</div><div class="rec-card-name">${r.productName}</div><div class="rec-card-date">${fd(r.recordTime)}</div></div>
+        <div class="rec-card-actions">
+          <button class="icon-btn icon-btn-edit" onclick="startEdit(${id})">✎</button>
+          <button class="icon-btn icon-btn-delete" onclick="confirmDelete(${id},'invest')">✕</button>
+        </div>
+      </div>
+      <div class="rec-grid">
+        <div class="rec-item"><div class="rec-item-label">投資金額</div><div class="rec-item-value">NT$ ${fc(r.amount)}</div></div>
+        <div class="rec-item"><div class="rec-item-label">市值</div><div class="rec-item-value">NT$ ${fc(r.marketValue)}</div></div>
+        <div class="rec-item"><div class="rec-item-label">投報金額</div><div class="rec-item-value ${cc(r.returnAmount)}">${parseFloat(r.returnAmount)>=0?'+':''}NT$ ${fc(r.returnAmount)}</div></div>
+        <div class="rec-item"><div class="rec-item-label">投報率</div><div class="rec-item-value ${cc(r.returnRate)}">${fr(r.returnRate)}</div></div>
+        <div class="rec-item"><div class="rec-item-label">含息投報率</div><div class="rec-item-value ${cc(r.totalReturnRate)}">${r.totalReturnRate?fr(r.totalReturnRate):'—'}</div></div>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function renderAssetLog(){
+  const f=document.getElementById('filterAssetType').value;
+  const filtered=f?assetRecords.filter(r=>r.assetType===f):assetRecords;
+  document.getElementById('assetResultCount').textContent=filtered.length?`${filtered.length} 筆`:'';
+  const el=document.getElementById('assetLogContent');
+  if(!filtered.length){el.innerHTML='<div class="empty-state"><div class="icon">📋</div><div class="text">'+(assetRecords.length?'無符合條件紀錄':'尚無資產紀錄')+'</div></div>';return;}
+  el.innerHTML=filtered.map(r=>{
+    const id=r._id;
+    if(editingAssetId===id)return`
+      <div class="edit-card">
+        <div class="field-row">
+          <div class="field"><label>日期</label><input type="date" id="ea_date_${id}" value="${(r.recordDate||'').slice(0,10)}" style="padding:10px 12px;font-size:0.88rem;border-radius:8px;width:100%;background:rgba(255,255,255,0.05);border:1px solid var(--border);color:var(--text);font-family:inherit;outline:none"></div>
+          <div class="field"><label>類型</label><select id="ea_type_${id}" style="padding:10px 12px;font-size:0.88rem;border-radius:8px;width:100%;background:rgba(255,255,255,0.05);border:1px solid var(--border);color:var(--text);font-family:inherit;outline:none">
+            <option value="富邦現金"${r.assetType==='富邦現金'?' selected':''}>富邦現金</option>
+            <option value="中信現金"${r.assetType==='中信現金'?' selected':''}>中信現金</option>
+            <option value="王道現金"${r.assetType==='王道現金'?' selected':''}>王道現金</option>
+            <option value="股票"${r.assetType==='股票'?' selected':''}>股票</option>
+            <option value="基金"${r.assetType==='基金'?' selected':''}>基金</option>
+          </select></div>
+        </div>
+        <div class="field"><label>金額</label><input type="number" id="ea_amount_${id}" value="${r.amount||''}" inputmode="numeric" style="padding:10px 12px;font-size:0.88rem;border-radius:8px;width:100%;background:rgba(255,255,255,0.05);border:1px solid var(--border);color:var(--text);font-family:inherit;outline:none"></div>
+        <div class="edit-btns">
+          <button class="edit-btn-save" onclick="saveAssetEdit(${id})">✓ 儲存</button>
+          <button class="edit-btn-cancel" onclick="cancelAssetEdit()">取消</button>
+        </div>
+      </div>`;
+    return`<div class="asset-card">
+      <div class="asset-card-left">
+        ${abadge(r.assetType)}
+        <div class="asset-amount">NT$ ${fc(r.amount)}</div>
+        <div class="asset-date">${fd(r.recordDate)}</div>
+      </div>
+      <div class="asset-card-right">
+        <button class="icon-btn icon-btn-edit" onclick="startAssetEdit(${id})">✎</button>
+        <button class="icon-btn icon-btn-delete" onclick="confirmDelete(${id},'asset')">✕</button>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function renderAssetDashboard(){
+  if(!assetRecords.length){
+    document.getElementById('assetKpiGrid').innerHTML='<div class="empty-state"><div class="icon">💰</div><div class="text">尚無資產紀錄，請至「資產紀錄」新增</div></div>';
+    document.getElementById('donutSection').style.display='none';
+    document.getElementById('compareSection').style.display='none';
+    return;
+  }
+  const dates=[...new Set(assetRecords.map(r=>r.recordDate))].sort((a,b)=>b.localeCompare(a));
+  const latestDate=dates[0],prevDate=dates[1]||null;
+  const latestRows=assetRecords.filter(r=>r.recordDate===latestDate);
+  const prevRows=prevDate?assetRecords.filter(r=>r.recordDate===prevDate):[];
+  const latest={},prev={};
+  latestRows.forEach(r=>{latest[r.assetType]=(latest[r.assetType]||0)+parseFloat(r.amount||0);});
+  prevRows.forEach(r=>{prev[r.assetType]=(prev[r.assetType]||0)+parseFloat(r.amount||0);});
+  const latestTotal=Object.values(latest).reduce((s,v)=>s+v,0);
+  const prevTotal=Object.values(prev).reduce((s,v)=>s+v,0);
+  const totalChange=latestTotal-prevTotal;
+  const totalChangePct=prevTotal>0?(totalChange/prevTotal*100):null;
+
+  const typeList=[{key:'富邦現金',cls:'cash-card'},{key:'中信現金',cls:'cash2-card'},{key:'王道現金',cls:'cash3-card'},{key:'股票',cls:'stock-card'},{key:'基金',cls:'fund-card'}];
+  let html=`<div class="kpi-grid">
+    <div class="kpi-card total">
+      <div class="kpi-label">📊 總資產（${latestDate}）</div>
+      <div class="kpi-value">NT$ ${fc(latestTotal)}</div>
+      ${prevDate?`<div class="kpi-change ${totalChange>=0?'pos':'neg'}">${totalChange>=0?'▲':'▼'} NT$ ${fc(Math.abs(totalChange))}${totalChangePct!==null?` (${totalChange>=0?'+':''}${totalChangePct.toFixed(1)}%)`:''}　vs ${prevDate}</div>`:'<div class="kpi-change neu">— 尚無前次比較</div>'}
+    </div>`;
+  typeList.forEach(({key,cls})=>{
+    const val=latest[key]||0,pval=prev[key]||0,diff=val-pval;
+    const pct=pval>0?(diff/pval*100):null;
+    const pct_t=latestTotal>0?(val/latestTotal*100):0;
+    if(!val&&!pval)return;
+    html+=`<div class="kpi-card ${cls}">
+      <div class="kpi-label">${key}</div>
+      <div class="kpi-value">NT$ ${fc(val)}</div>
+      <div class="kpi-sub">${pct_t.toFixed(1)}% 佔比</div>
+      ${prevDate?`<div class="kpi-change ${diff>=0?'pos':'neg'}">${diff>=0?'▲':'▼'} NT$ ${fc(Math.abs(diff))}${pct!==null?` (${diff>=0?'+':''}${pct.toFixed(1)}%)`:''}` :'<div class="kpi-change neu">—'}</div>
+    </div>`;
+  });
+  html+='</div>';
+  document.getElementById('assetKpiGrid').innerHTML=html;
+
+  if(latestTotal>0){document.getElementById('donutSection').style.display='';drawDonut(latest,latestTotal);}
+
+  if(prevDate){
+    document.getElementById('compareSection').style.display='';
+    let rows='';
+    typeList.forEach(({key})=>{const p=prev[key]||0,l=latest[key]||0,d=l-p;if(!p&&!l)return;rows+=`<tr><td>${abadge(key)}</td><td>NT$ ${fc(p)}</td><td>NT$ ${fc(l)}</td><td class="${cc(d)}">${d>=0?'+':''}NT$ ${fc(d)}</td></tr>`;});
+    const td=totalChange;
+    rows+=`<tr><td>合計</td><td>NT$ ${fc(prevTotal)}</td><td>NT$ ${fc(latestTotal)}</td><td class="${cc(td)}">${td>=0?'+':''}NT$ ${fc(td)}</td></tr>`;
+    document.getElementById('compareContent').innerHTML=`<div style="overflow-x:auto"><table class="compare-table"><thead><tr><th>類型</th><th>${prevDate}</th><th>${latestDate}</th><th>變化</th></tr></thead><tbody>${rows}</tbody></table></div>`;
+  } else { document.getElementById('compareSection').style.display='none'; }
+}
+
+function drawDonut(data,total){
+  const canvas=document.getElementById('donutChart');
+  const ctx=canvas.getContext('2d');
+  ctx.clearRect(0,0,160,160);
+  const cx=80,cy=80,r=68,inner=44;
+  let start=-Math.PI/2;
+  const slices=Object.entries(data).filter(([,v])=>v>0);
+  slices.forEach(([key,val])=>{
+    const angle=(val/total)*Math.PI*2;
+    ctx.beginPath();ctx.moveTo(cx,cy);ctx.arc(cx,cy,r,start,start+angle);ctx.closePath();
+    ctx.fillStyle=ASSET_COLORS[key]||'#60a5fa';ctx.fill();start+=angle;
+  });
+  ctx.beginPath();ctx.arc(cx,cy,inner,0,Math.PI*2);ctx.fillStyle='#0a0f1e';ctx.fill();
+  ctx.fillStyle='#94a3b8';ctx.font='bold 10px sans-serif';ctx.textAlign='center';ctx.textBaseline='middle';ctx.fillText('NT$',cx,cy-7);
+  ctx.fillStyle='#f1f5f9';ctx.font='bold 12px sans-serif';
+  const t=total>=1e6?(total/1e6).toFixed(1)+'M':total>=1e3?(total/1e3).toFixed(0)+'K':total.toFixed(0);
+  ctx.fillText(t,cx,cy+8);
+  document.getElementById('donutLegend').innerHTML=slices.map(([key,val])=>`
+    <div class="legend-row">
+      <div class="legend-dot" style="background:${ASSET_COLORS[key]||'#60a5fa'}"></div>
+      <span style="color:#94a3b8">${key}</span>
+      <span style="color:#f1f5f9;margin-left:8px">NT$ ${fc(val)}</span>
+    </div>`).join('');
+}
+
+function exportCSV(){
+  const filtered=getFiltered();if(!filtered.length){alert('尚無資料');return;}
+  const rows=[INVEST_HEADERS,...filtered.map(r=>[r.recordTime,r.type,r.productName,r.amount,r.marketValue,r.returnAmount,r.returnRate,r.totalReturnRate])];
+  const csv=rows.map(r=>r.map(c=>`"${String(c).replace(/"/g,'""')}"`).join(',')).join('\n');
+  const a=document.createElement('a');a.href=URL.createObjectURL(new Blob(['\uFEFF'+csv],{type:'text/csv;charset=utf-8'}));
+  a.download=`投資紀錄_${new Date().toLocaleDateString('zh-TW').replace(/\//g,'-')}.csv`;a.click();
+}
+
+function setSyncPill(cls,text){const el=document.getElementById('syncPill');el.className='sync-pill'+(cls?' '+cls:'');el.textContent=text;}
+function setBanner(connected){
+  const b=document.getElementById('banner'),t=document.getElementById('bannerText');
+  if(connected){b.className='connected';t.textContent='✓ 已連線 Google Sheets';}
+  else{b.className='';t.textContent='⚙️ 請至「設定」貼上 Apps Script 網址';}
+}
+</script>
+</body>
+</html>

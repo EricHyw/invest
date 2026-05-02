@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+<!DOCTYPE by>
 <html lang="zh-TW">
 <head>
 <meta charset="UTF-8">
@@ -310,6 +310,27 @@ header {
   .field-row { grid-template-columns:1fr 1fr; }
   .kpi-grid { grid-template-columns:1fr 1fr 1fr; }
 }
+
+  /* ── Chart ── */
+  .chart-card { background:var(--bg3); border:1px solid var(--border); border-radius:14px; padding:16px; margin-bottom:14px; }
+  .chart-card-head { display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:12px; flex-wrap:wrap; gap:8px; }
+  .chart-title { font-size:0.95rem; font-weight:700; color:#f1f5f9; }
+  .chart-sub   { font-size:0.68rem; color:var(--text3); margin-top:2px; }
+  .chart-legend { display:flex; gap:10px; align-items:center; }
+  .chart-leg-item { font-size:0.7rem; font-weight:600; }
+  .chart-wrap { position:relative; width:100%; }
+  .chart-wrap canvas { width:100% !important; height:180px !important; display:block; }
+  .chart-x-labels { display:flex; justify-content:space-between; padding:4px 0 0; }
+  .chart-x-label { font-size:0.58rem; color:var(--text3); text-align:center; }
+  .chart-tooltip {
+    position:absolute; background:rgba(15,23,42,0.95);
+    border:1px solid var(--border); border-radius:8px;
+    padding:8px 12px; font-size:0.75rem; pointer-events:none;
+    white-space:nowrap; z-index:10;
+  }
+  .chart-tooltip-date { color:var(--text3); margin-bottom:4px; }
+  .chart-tooltip-row  { display:flex; align-items:center; gap:6px; margin-top:2px; }
+  .chart-tooltip-dot  { width:7px; height:7px; border-radius:50%; }
 </style>
 </head>
 <body>
@@ -323,6 +344,7 @@ header {
   </div>
   <div class="header-right">
     <div class="sync-pill" id="syncPill">未連線</div>
+    <div style="font-size:0.72rem;color:var(--text3)">投資 <span id="recordCount" style="color:var(--blue);font-weight:700">0</span></div>
   </div>
 </header>
 
@@ -387,10 +409,30 @@ header {
     <div class="page-label">歷史查詢</div>
     <div class="page-title">投資紀錄</div>
     <div class="filter-bar">
-      <select id="filterProduct" onchange="renderHistory()"><option value="">全部產品</option></select>
+      <select id="filterProduct" onchange="onFilterChange()"><option value="">全部產品</option></select>
       <span class="count-tag" id="resultCount"></span>
       <button class="btn-green-full" id="refreshBtn" onclick="loadRecords()">↻ 載入</button>
       <button class="btn-outline" onclick="exportCSV()">↓ CSV</button>
+    </div>
+    <!-- 報酬率變化圖 -->
+    <div id="chartSection" style="display:none">
+      <div class="chart-card">
+        <div class="chart-card-head">
+          <div>
+            <div class="chart-title" id="chartTitle"></div>
+            <div class="chart-sub" id="chartSub"></div>
+          </div>
+          <div class="chart-legend">
+            <span class="chart-leg-item" style="color:#60a5fa">— 投報率</span>
+            <span class="chart-leg-item" style="color:#a78bfa">— 含息</span>
+          </div>
+        </div>
+        <div class="chart-wrap">
+          <canvas id="returnChart"></canvas>
+          <div id="chartTooltip" class="chart-tooltip" style="display:none"></div>
+        </div>
+        <div class="chart-x-labels" id="chartXLabels"></div>
+      </div>
     </div>
     <div id="historyContent"><div class="empty-state"><div class="icon">📋</div><div class="text">尚無歷史紀錄</div></div></div>
   </div>
@@ -510,7 +552,7 @@ const ASSET_COLORS={'富邦現金':'#34d399','中信現金':'#10b981','王道現
 let records=[], assetRecords=[];
 let editingId=null, editingAssetId=null;
 let pendingDelId=null, pendingDelType=null;
-let SCRIPT_URL='https://script.google.com/macros/s/AKfycbxz-oGUojQuVQmMJD5ksArD8Gb3l89qohJPbk4dveSq_cugV74kGSP_qoPeCg3AbNnT/exec';
+let SCRIPT_URL=localStorage.getItem('investScriptUrl')||'';
 
 window.onload=()=>{
   const n=new Date(); n.setMinutes(n.getMinutes()-n.getTimezoneOffset());
@@ -565,6 +607,7 @@ async function loadRecords(){
 }
 function applyRows(rows){
   records=[...rows].reverse().map((r,i)=>({...r,_id:i}));
+  document.getElementById('recordCount').textContent=records.length;
   updateFilterOpts(); renderHistory(); renderSummary();
 }
 function updateFilterOpts(){
@@ -608,6 +651,7 @@ async function submitRecord(){
   try{
     const res=await apiPost({action:'append',row:r});
     r.rowIndex=res.rowIndex;r._id=Date.now();records.unshift(r);
+    document.getElementById('recordCount').textContent=records.length;
     updateFilterOpts();renderHistory();renderSummary();
     setSyncPill('synced','已同步');btn.textContent='✓ 已儲存';btn.classList.add('success');
     setTimeout(()=>{btn.textContent='儲存紀錄';btn.classList.remove('success');btn.disabled=false;},1400);
@@ -648,7 +692,7 @@ async function executeDelete(){
   if(!r)return;closeDeleteModal();setSyncPill('syncing','刪除中…');
   try{
     await apiPost({action:type==='invest'?'delete':'deleteAsset',rowIndex:r.rowIndex});
-    if(type==='invest'){records=records.filter(x=>x._id!==id);}
+    if(type==='invest'){records=records.filter(x=>x._id!==id);document.getElementById('recordCount').textContent=records.length;loadRecords();}
     else{assetRecords=assetRecords.filter(x=>x._id!==id);loadAssets();}
     setSyncPill('synced','已同步');
   }catch(e){setSyncPill('error','失敗');alert(e.message);}
@@ -753,6 +797,159 @@ function renderSummary(){
         <div class="hold-stat"><div class="hold-stat-label">含息投報率</div><div class="hold-stat-value ${cc(r.totalReturnRate)}">${r.totalReturnRate?fr(r.totalReturnRate):'—'}</div></div>
       </div>
     </div>`).join('');
+}
+
+function onFilterChange(){
+  renderHistory();
+  const f=document.getElementById('filterProduct').value;
+  if(f) renderChart(f);
+  else document.getElementById('chartSection').style.display='none';
+}
+
+function renderChart(productName){
+  // 取得該產品所有紀錄，按日期正序
+  const data=records
+    .filter(r=>r.productName===productName && r.recordTime)
+    .sort((a,b)=>a.recordTime.localeCompare(b.recordTime));
+
+  const sec=document.getElementById('chartSection');
+  if(data.length<2){sec.style.display='none';return;}
+  sec.style.display='';
+
+  document.getElementById('chartTitle').textContent=productName+' 報酬率變化';
+  const latest=data[data.length-1];
+  const latestRr=parseFloat(latest.returnRate)||0;
+  const latestTr=parseFloat(latest.totalReturnRate)||0;
+  document.getElementById('chartSub').textContent=
+    `最新投報率 ${latestRr>=0?'+':''}${latestRr.toFixed(2)}%　含息 ${latestTr?((latestTr>=0?'+':'')+latestTr.toFixed(2)+'%'):'—'}`;
+
+  const labels=data.map(r=>r.recordTime.slice(5)); // MM-DD
+  const rrVals=data.map(r=>parseFloat(r.returnRate)||0);
+  const trVals=data.map(r=>parseFloat(r.totalReturnRate)||null);
+  const hasTr=trVals.some(v=>v!==null);
+
+  const canvas=document.getElementById('returnChart');
+  const dpr=window.devicePixelRatio||1;
+  const W=canvas.parentElement.clientWidth;
+  const H=180;
+  canvas.width=W*dpr; canvas.height=H*dpr;
+  canvas.style.width=W+'px'; canvas.style.height=H+'px';
+  const ctx=canvas.getContext('2d');
+  ctx.scale(dpr,dpr);
+
+  const PAD={top:16,right:14,bottom:8,left:48};
+  const gW=W-PAD.left-PAD.right;
+  const gH=H-PAD.top-PAD.bottom;
+
+  // y range
+  const allVals=[...rrVals,...trVals.filter(v=>v!==null)];
+  let yMin=Math.min(...allVals), yMax=Math.max(...allVals);
+  const yPad=Math.max((yMax-yMin)*0.2,1);
+  yMin-=yPad; yMax+=yPad;
+
+  function xPos(i){ return PAD.left+(i/(data.length-1))*gW; }
+  function yPos(v){ return PAD.top+(1-(v-yMin)/(yMax-yMin))*gH; }
+
+  // grid + zero line
+  ctx.strokeStyle='rgba(100,160,255,0.07)';
+  ctx.lineWidth=1;
+  for(let i=0;i<=4;i++){
+    const y=PAD.top+(i/4)*gH;
+    ctx.beginPath();ctx.moveTo(PAD.left,y);ctx.lineTo(PAD.left+gW,y);ctx.stroke();
+  }
+  // zero line
+  if(yMin<0&&yMax>0){
+    const zy=yPos(0);
+    ctx.strokeStyle='rgba(100,160,255,0.25)';ctx.setLineDash([4,4]);
+    ctx.beginPath();ctx.moveTo(PAD.left,zy);ctx.lineTo(PAD.left+gW,zy);ctx.stroke();
+    ctx.setLineDash([]);
+    ctx.fillStyle='rgba(100,160,255,0.4)';ctx.font='9px sans-serif';ctx.fillText('0%',2,zy+4);
+  }
+
+  // y labels
+  ctx.fillStyle='rgba(148,163,184,0.7)';ctx.font='9px sans-serif';ctx.textAlign='right';
+  for(let i=0;i<=4;i++){
+    const v=yMin+(yMax-yMin)*(1-i/4);
+    ctx.fillText(v.toFixed(1)+'%',PAD.left-4,PAD.top+(i/4)*gH+4);
+  }
+
+  function drawLine(vals, color, fillTop, fillBot){
+    if(!vals.some(v=>v!==null))return;
+    // fill
+    ctx.beginPath();
+    let started=false;
+    vals.forEach((v,i)=>{
+      if(v===null)return;
+      if(!started){ctx.moveTo(xPos(i),yPos(v));started=true;}
+      else ctx.lineTo(xPos(i),yPos(v));
+    });
+    const lastIdx=vals.map((v,i)=>v!==null?i:-1).filter(i=>i>=0).pop();
+    const firstIdx=vals.map((v,i)=>v!==null?i:-1).filter(i=>i>=0)[0];
+    ctx.lineTo(xPos(lastIdx),yPos(0));
+    ctx.lineTo(xPos(firstIdx),yPos(0));
+    ctx.closePath();
+    const grad=ctx.createLinearGradient(0,PAD.top,0,PAD.top+gH);
+    grad.addColorStop(0,fillTop);grad.addColorStop(1,fillBot);
+    ctx.fillStyle=grad;ctx.fill();
+    // line
+    ctx.beginPath();started=false;
+    vals.forEach((v,i)=>{
+      if(v===null)return;
+      if(!started){ctx.moveTo(xPos(i),yPos(v));started=true;}
+      else ctx.lineTo(xPos(i),yPos(v));
+    });
+    ctx.strokeStyle=color;ctx.lineWidth=2;ctx.lineJoin='round';ctx.stroke();
+    // dots
+    vals.forEach((v,i)=>{
+      if(v===null)return;
+      ctx.beginPath();ctx.arc(xPos(i),yPos(v),3.5,0,Math.PI*2);
+      ctx.fillStyle=color;ctx.fill();
+      ctx.strokeStyle='#0a0f1e';ctx.lineWidth=1.5;ctx.stroke();
+    });
+  }
+
+  if(hasTr) drawLine(trVals,'#a78bfa','rgba(167,139,250,0.15)','rgba(167,139,250,0)');
+  drawLine(rrVals,'#60a5fa','rgba(96,165,250,0.2)','rgba(96,165,250,0)');
+
+  // x labels (max 6)
+  const step=Math.max(1,Math.ceil(data.length/6));
+  const xLabels=document.getElementById('chartXLabels');
+  xLabels.innerHTML='';
+  data.forEach((r,i)=>{
+    if(i%step!==0&&i!==data.length-1)return;
+    const lbl=document.createElement('span');
+    lbl.className='chart-x-label';
+    lbl.textContent=labels[i];
+    lbl.style.width=(100/Math.ceil(data.length/step))+'%';
+    xLabels.appendChild(lbl);
+  });
+
+  // touch/mouse tooltip
+  function showTip(clientX){
+    const rect=canvas.getBoundingClientRect();
+    const mx=clientX-rect.left;
+    let nearest=0,minDist=Infinity;
+    data.forEach((_,i)=>{const d=Math.abs(xPos(i)-mx);if(d<minDist){minDist=d;nearest=i;}});
+    if(minDist>40)return hideTip();
+    const r=data[nearest];
+    const rr=parseFloat(r.returnRate)||0;
+    const tr=parseFloat(r.totalReturnRate)||null;
+    const tip=document.getElementById('chartTooltip');
+    tip.innerHTML=`<div class="chart-tooltip-date">${fd(r.recordTime)}</div>
+      <div class="chart-tooltip-row"><div class="chart-tooltip-dot" style="background:#60a5fa"></div>投報率 <strong style="color:#60a5fa">${rr>=0?'+':''}${rr.toFixed(2)}%</strong></div>
+      ${tr!==null?`<div class="chart-tooltip-row"><div class="chart-tooltip-dot" style="background:#a78bfa"></div>含息 <strong style="color:#a78bfa">${tr>=0?'+':''}${tr.toFixed(2)}%</strong></div>`:''}`;
+    tip.style.display='block';
+    const tipW=tip.offsetWidth||120;
+    let left=xPos(nearest)-tipW/2;
+    left=Math.max(0,Math.min(left,W-tipW));
+    tip.style.left=left+'px';
+    tip.style.top=(yPos(Math.max(rr,tr||rr))-60)+'px';
+  }
+  function hideTip(){document.getElementById('chartTooltip').style.display='none';}
+  canvas.onmousemove=e=>showTip(e.clientX);
+  canvas.onmouseleave=hideTip;
+  canvas.ontouchmove=e=>{e.preventDefault();showTip(e.touches[0].clientX);};
+  canvas.ontouchend=hideTip;
 }
 
 function renderHistory(){

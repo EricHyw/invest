@@ -312,7 +312,7 @@ body{min-height:100%;background:var(--bg);font-family:'Noto Sans TC','PingFang T
     </div>
     <div class="header-right">
       <div class="sync-pill" id="syncPill">未連線</div>
-      <div class="hdr-count" style="display: none;">投資 <span id="recordCount" >0</span> 筆</div>
+      <div class="hdr-count" style="display: none;">投資 <span id="recordCount">0</span> 筆</div>
     </div>
   </div>
   <!-- Desktop tabs -->
@@ -494,7 +494,7 @@ const ASSET_COLORS={'富邦現金':'#34d399','中信現金':'#10b981','王道現
 let records=[],assetRecords=[];
 let editingId=null,editingAssetId=null;
 let pendingDelId=null,pendingDelType=null;
-let SCRIPT_URL='https://script.google.com/macros/s/AKfycbxz-oGUojQuVQmMJD5ksArD8Gb3l89qohJPbk4dveSq_cugV74kGSP_qoPeCg3AbNnT/exec';
+let SCRIPT_URL=localStorage.getItem('investScriptUrl')||'';
 let isDesktop=()=>window.innerWidth>=900;
 
 window.onload=()=>{
